@@ -1,0 +1,9 @@
+Sam Altman: surprisingly capable.
+Unknown: of how critical research is to OpenAI is that building product at OpenAI is fundamentally different than any other place that I have ever done it before. And, normally, you have
+Sam Altman: We want to figure out how to make capable models that get safer and safer over time. what the picture of alignment looked like and what we thought the problems that we needed to solve as
+Unknown: like Harvey and CaseText.
+Sam Altman: very near and dear to our heart. It's kinda like the first thing we launched, And in addition to
+Unknown: But teaching people what those can be and then bringing them along as the model changes Customer service, we have bots internally that do a ton about answering external questions and fielding
+Unknown: Thank you. I'm wondering if you guys have any plans on sharing models for, like, offline usage. Because that with this distillation thing, it's really cool that we can generate our own models, but a lot of use cases, you really wanna kinda, like, have a version of it.
+Unknown: Question is, there are many agencies in the government about the local, state, and national level that could really greatly benefit from the tools that you guys are developing, but have perhaps some hesitancy on deploying them because of, you know, security concerns, data concerns, privacy concerns. And I guess I'm curious to know if there are any sort of, you know, planned partnerships with governments, world governments once whatever AGI is achieved. Because, obviously, if AGI can help solve problems like, you know, world hunger, poverty, climate change, government's gonna have to get involved with that. Right? And I'm just curious to know if there is some,
+Unknown: we struggle with the with trying to build an application that can do lots of things for lots of people

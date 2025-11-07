@@ -1,0 +1,21 @@
+services:
+  browser_use: false
+  craigslist_service: false
+  diarized_audio: true
+  download_youtube_audio: true
+  ffmpeg_api: false
+  filevine: false
+  fireflies_api: false
+  html_to_markdown_service: false
+  juypter_notebooks: false
+  linkedin_api: false
+  n8n: true
+  openai_web_search_api: false
+  scrape_podcasts_service: false
+  scrape_youtube_channel_links: false
+  test_service: false
+  whisper_api: false
+  x_api: false
+  youtube_transcript_api: false
+  ingestion_service: false
+  rag_backend: true

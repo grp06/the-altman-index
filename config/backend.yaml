@@ -1,0 +1,19 @@
+config_version: 1
+storage:
+  artifacts_dir: artifacts
+  index_dir: artifacts/index
+  chunk_metadata_path: artifacts/metadata/chunks.parquet
+  manifest_path: artifacts/metadata/manifest.parquet
+retrieval:
+  collection_name: sam_altman_interviews
+  top_k: 5
+  distance_metric: cosine
+models:
+  classifier: gpt-4o
+  synthesizer: gpt-4o
+  embedding: text-embedding-3-small
+server:
+  host: 0.0.0.0
+  port: 8000
+logging:
+  summaries_path: artifacts/logs/ingestion_runs.jsonl

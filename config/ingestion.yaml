@@ -1,0 +1,19 @@
+config_version: 1
+chunking:
+  size_tokens: 600
+  overlap_tokens: 90
+embedding:
+  model: text-embedding-3-small
+  batch_size: 64
+retrieval:
+  collection_name: sam_altman_interviews
+  distance_metric: cosine
+storage:
+  transcripts_dir: data/transcripts
+  metadata_dir: data/metadata
+  artifacts_dir: artifacts
+  index_dir: artifacts/index
+  chunk_metadata_path: artifacts/metadata/chunks.parquet
+  manifest_path: artifacts/metadata/manifest.parquet
+logging:
+  summaries_path: artifacts/logs/ingestion_runs.jsonl
