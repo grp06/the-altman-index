@@ -1,0 +1,27 @@
+[project]
+name = "rag-ingestion"
+version = "0.1.0"
+description = "Ingestion pipeline for the Query Sam Altman corpus"
+requires-python = ">=3.11"
+dependencies = [
+  "chromadb==0.4.24",
+  "numpy<2",
+  "openai>=1.40.0,<2",
+  "pandas==2.2.2",
+  "pyarrow==16.1.0",
+  "pydantic==2.7.0",
+  "pyyaml==6.0.1",
+  "tiktoken==0.6.0",
+  "typer==0.12.3",
+  "rag-core>=0.1.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+package = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rag_ingestion"]

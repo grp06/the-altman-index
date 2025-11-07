@@ -1,71 +1,121 @@
-# Query Sam Altman – Monorepo
+# Query Sam Altman – Transparent RAG Playground
 
-This workspace hosts the ingestion pipeline, FastAPI RAG backend, and Next.js frontend that power the Sam Altman transcript explorer. It is a clean copy of the working stack from `~/n8n-local` with transcripts, metadata, configs, and artifacts collocated so it can run independently.
+This repo powers an end-to-end Retrieval-Augmented Generation experience for ~100 Sam Altman interviews. Users can ask any question, watch the system classify its intent, inspect the retrieved chunks, and read a grounded synthesis with citations. The goal is to demystify how RAG works while showcasing production-ready ingestion, backend, and frontend code.
 
-## Directory Map
+## What’s Included
+- **Deterministic ingestion pipeline** – token-aware chunking, batched OpenAI embeddings, Chroma persistence, and JSONL run summaries.
+- **FastAPI backend** – `/classify`, `/search`, `/synthesize`, `/healthz` with strict schemas and logging.
+- **Next.js frontend** – question-type pills, suggested prompts, pipeline status UI, and trace tabs.
+- **Shared Python utilities** – config + logging helpers inside `libs/python/core`.
+- **Make targets + Docker compose** – simple commands for local runs or containerized orchestration.
 
-- `ingestion/` – Typer CLI for rebuilding the vector store (`python -m app.cli rebuild`).
-- `backend/` – FastAPI service exposing `/classify`, `/search`, `/synthesize`, `/healthz`.
-- `frontend/` – Next.js UI (copied from `../podcast-analysis`).
-- `config/` – Shared YAML configs wired to the new `data/` + `artifacts/` paths.
-- `data/` – `transcripts/` and `metadata/` copied from `diarized_audio/...` and `download_youtube_audio/...`.
-- `artifacts/` – Chroma index, parquet manifests, and logs created by the ingestion pipeline.
-- `docs/` – PRDs and runbooks from the original project.
+## Repository Layout
 
-## Environment Variables
+| Path | Purpose |
+| --- | --- |
+| `apps/ingestion` | `rag_ingestion` Typer CLI (chunking, embeddings, Chroma upserts). |
+| `apps/backend` | `rag_backend` FastAPI server for classify → search → synthesize. |
+| `apps/frontend` | Next.js UI that visualizes the pipeline. |
+| `libs/python/core` | Shared helpers (`rag_core`) for config + logging. |
+| `infra/docker` | Compose file that runs ingestion then backend. |
+| `var/data` | Source transcripts + metadata (not committed). |
+| `var/artifacts` | Generated chunks, manifests, indexes, logs (not committed). |
+| `Makefile` | Shortcuts for backend + ingestion commands. |
+| `ROADMAP.md` | Active to-do list for upcoming features. |
 
-Create a `.env` at the repo root (or export the variables before running commands):
+## Prerequisites
+1. **Python 3.11+** with [`uv`](https://docs.astral.sh/uv/) installed (the repo already vendors `uv.lock`).
+2. **Node.js 18+** for the Next.js frontend.
+3. **OpenAI API key** – stored in `.env` at the repo root.
+4. **Transcripts + metadata** – drop `.txt` files into `var/data/transcripts/` and JSON metadata into `var/data/metadata/`. Nothing under `var/` is tracked by git except `var/README.md`.
 
 ```bash
 cp .env.example .env
-# edit with your OpenAI API key
+echo "OPENAI_API_KEY=sk-..." >> .env
+mkdir -p var/data/transcripts var/data/metadata var/artifacts
 ```
 
-- `OPENAI_API_KEY` – required by ingestion + backend.
-- `NEXT_PUBLIC_API_BASE_URL` – frontend `.env.local` should point to the backend (see `frontend/.env.example`).
+## First-Time Setup
+```bash
+uv sync --project apps/ingestion
+uv sync --project apps/backend
+cd apps/frontend && npm install && cd -
+```
 
-## Running Locally (Python)
+## Ingestion CLI
+The ingestion pipeline reads from `var/data`, writes manifests/parquet files to `var/artifacts`, and logs summaries to `var/artifacts/logs/ingestion_runs.jsonl`.
 
 ```bash
-# Ingestion
-cd ingestion
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-python -m app.cli validate
-python -m app.cli rebuild
+# Validate directories + config
+make ingestion-validate
 
-# Backend
-cd ../backend
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8018
+# Rebuild the entire vector store (recreates chunks + Chroma index)
+make ingestion-rebuild
 ```
 
-## Running Locally (Next.js)
+Artifacts after a rebuild:
+```
+var/
+  artifacts/
+    index/                      # Chroma persistent store
+    metadata/
+      chunks.parquet            # Chunk manifest with ids + metadata
+      manifest.parquet          # Transcript-level manifest
+    logs/
+      ingestion_runs.jsonl      # One JSON line per run
+```
+
+## Backend Service
+Run the FastAPI server with live reload and automatic `.env` loading:
 
 ```bash
-cd frontend
-cp .env.example .env.local  # update API base URL if needed
-npm install
-npm run dev
+make backend-dev
+# Equivalent: uv run --env-file .env --project apps/backend uvicorn rag_backend.main:app --reload --port 8018
 ```
 
-## Docker Compose
+Helpful endpoints:
+- `GET /healthz` – chunk count, last ingestion run, config version.
+- `POST /classify` – `{query}` → `{type, confidence}` using GPT-4o.
+- `POST /search` – `{query, question_type, top_k?}` → relevant chunks + scores.
+- `POST /synthesize` – `{query, question_type, chunk_ids[]}` → grounded answer + reasoning trace.
 
-A slim `docker-compose.yml` is available at the repo root. It rebuilds the embeddings before starting the backend and mounts the `config/`, `data/`, and `artifacts/` directories so everything stays in sync.
+Question types (`rag_backend.constants.QUESTION_TYPES`): `factual`, `analytical`, `meta`, `exploratory`, `comparative`, `creative`.
 
+## Frontend
 ```bash
-cd ~/query-sam-altman
-cp .env.example .env
-OPENAI_API_KEY=... docker compose up --build
+cd apps/frontend
+cp .env.example .env.local        # default points to http://localhost:8018
+npm run dev                       # http://localhost:3000
 ```
 
-## Verification Checklist
+The UI walks users through:
+1. Selecting a question (or choosing from pill-based suggestions).
+2. Seeing live status updates (“classifying”, “retrieving”, “synthesizing”).
+3. Inspecting retrieved chunks (score, title, links).
+4. Reading the synthesized answer with reasoning steps.
 
-1. `python -m app.cli validate` succeeds inside `ingestion/`.
-2. `python -m app.cli rebuild` recreates `artifacts/metadata/*.parquet` without path errors.
-3. `uvicorn app.main:app --reload --port 8018` serves `/healthz` and reports chunk counts.
-4. Frontend `npm run dev` hits the backend (update `.env.local` as needed).
-5. `docker compose up --build` runs ingestion then backend end-to-end.
+## Docker Compose (Optional)
+```bash
+cp .env.example .env    # ensure OPENAI_API_KEY is populated
+docker compose -f infra/docker/compose.yaml --profile ingestion up --build   # run ingestion job
+docker compose -f infra/docker/compose.yaml up --build                       # start backend only
+```
+The compose file mounts `config/` and `var/` into each container, so local artifacts remain the source of truth.
 
-Once the new project is fully validated you can retire the original files in `~/n8n-local`.
+## API Quick Reference
+
+| Endpoint | Payload | Notes |
+| --- | --- | --- |
+| `GET /healthz` | – | Confirms backend booted with valid artifacts and shows last ingestion summary. |
+| `POST /classify` | `{"query": "What does Sam Altman think about AGI?"}` | Returns `{ "type": "factual", "confidence": 0.92 }`. |
+| `POST /search` | `{"query": "...", "question_type": "analytical", "top_k": 8}` | Embeds query, queries Chroma, returns chunks `{id, snippet, score, metadata}`. |
+| `POST /synthesize` | `{"query": "...", "question_type": "comparative", "chunk_ids": [...]}` | Fetches full chunk text, prompts GPT-4o to produce `{answer, reasoning[]}`. |
+
+## Troubleshooting
+- **Startup fails with OpenAI errors** – ensure `OPENAI_API_KEY` is set in `.env`; `make backend-dev` automatically loads it.
+- **No chunks detected** – confirm `var/artifacts/metadata/chunks.parquet` exists (rerun `make ingestion-rebuild`).
+- **Chroma path mismatch** – configs (`config/*.yaml`) assume artifacts live under `var/`; update paths if you relocate data.
+- **Health check stale** – check `var/artifacts/logs/ingestion_runs.jsonl` for the latest run and rerun ingestion if needed.
+- **Frontend can’t reach backend** – verify `apps/frontend/.env.local` points to `http://localhost:8018` and CORS is enabled by default.
+
+For upcoming work, see [`ROADMAP.md`](ROADMAP.md).

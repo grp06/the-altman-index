@@ -1,0 +1,29 @@
+services:
+  ingestion:
+    profiles: ["ingestion"]
+    build:
+      context: ../../apps/ingestion
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY is required}
+      INGESTION_CONFIG_PATH: /workspace/config/ingestion.yaml
+      ANONYMIZED_TELEMETRY: "false"
+      ORT_DISABLE_CPU_CAPABILITY_CHECK: "1"
+    volumes:
+      - ../../config:/workspace/config:ro
+      - ../../var:/workspace/var
+    command: ["rebuild"]
+    restart: "no"
+
+  backend:
+    build:
+      context: ../../apps/backend
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY is required}
+      RAG_BACKEND_CONFIG_PATH: /workspace/config/backend.yaml
+      ANONYMIZED_TELEMETRY: "false"
+      ORT_DISABLE_CPU_CAPABILITY_CHECK: "1"
+    volumes:
+      - ../../config:/workspace/config:ro
+      - ../../var:/workspace/var:ro
+    ports:
+      - "8018:8000"

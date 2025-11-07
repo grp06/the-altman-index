@@ -5,13 +5,17 @@
 venv/
 __pycache__/
 *.pyc
-node_modules/
-frontend/node_modules/
-frontend/.next/
+**/node_modules/
 .DS_Store
 
-# Vector database and ML artifacts (VERY LARGE)
-artifacts/
+# Workspace data
+var/*
+!var/README.md
+
+# Frontend artifacts
+apps/frontend/node_modules/
+apps/frontend/.next/
+apps/frontend/tsconfig.tsbuildinfo
 
 # Python distribution and testing
 *.egg-info/

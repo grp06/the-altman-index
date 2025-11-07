@@ -9,11 +9,11 @@ retrieval:
   collection_name: sam_altman_interviews
   distance_metric: cosine
 storage:
-  transcripts_dir: data/transcripts
-  metadata_dir: data/metadata
-  artifacts_dir: artifacts
-  index_dir: artifacts/index
-  chunk_metadata_path: artifacts/metadata/chunks.parquet
-  manifest_path: artifacts/metadata/manifest.parquet
+  transcripts_dir: var/data/transcripts
+  metadata_dir: var/data/metadata
+  artifacts_dir: var/artifacts
+  index_dir: var/artifacts/index
+  chunk_metadata_path: var/artifacts/metadata/chunks.parquet
+  manifest_path: var/artifacts/metadata/manifest.parquet
 logging:
-  summaries_path: artifacts/logs/ingestion_runs.jsonl
+  summaries_path: var/artifacts/logs/ingestion_runs.jsonl
