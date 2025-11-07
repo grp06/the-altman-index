@@ -15,5 +15,10 @@ storage:
   index_dir: var/artifacts/index
   chunk_metadata_path: var/artifacts/metadata/chunks.parquet
   manifest_path: var/artifacts/metadata/manifest.parquet
+  enriched_manifest_path: var/artifacts/metadata/manifest_enriched.parquet
 logging:
   summaries_path: var/artifacts/logs/ingestion_runs.jsonl
+  audit_path: var/artifacts/logs/corpus_audit.jsonl
+  enrichment_errors_path: var/artifacts/logs/enrichment_errors.jsonl
+enrichment:
+  max_workers: 25

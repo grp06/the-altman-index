@@ -31,10 +31,17 @@ class StorageSettings(BaseModel):
   index_dir: Path
   chunk_metadata_path: Path
   manifest_path: Path
+  enriched_manifest_path: Path
 
 
 class LoggingSettings(BaseModel):
   summaries_path: Path
+  audit_path: Path
+  enrichment_errors_path: Path
+
+
+class EnrichmentSettings(BaseModel):
+  max_workers: int = Field(8, ge=1, le=64)
 
 
 class AppConfig(BaseModel):
@@ -44,6 +51,7 @@ class AppConfig(BaseModel):
   retrieval: RetrievalSettings
   storage: StorageSettings
   logging: LoggingSettings
+  enrichment: EnrichmentSettings = Field(default_factory=EnrichmentSettings)
 
 
 @dataclass
@@ -72,12 +80,19 @@ class LoadedConfig:
   def logging(self) -> LoggingSettings:
     return self.raw.logging
 
+  @property
+  def enrichment(self) -> EnrichmentSettings:
+    return self.raw.enrichment
+
   def ensure_storage_paths(self) -> None:
     self.storage.artifacts_dir.mkdir(parents=True, exist_ok=True)
     self.storage.index_dir.mkdir(parents=True, exist_ok=True)
     self.storage.chunk_metadata_path.parent.mkdir(parents=True, exist_ok=True)
     self.storage.manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    self.storage.enriched_manifest_path.parent.mkdir(parents=True, exist_ok=True)
     self.logging.summaries_path.parent.mkdir(parents=True, exist_ok=True)
+    self.logging.audit_path.parent.mkdir(parents=True, exist_ok=True)
+    self.logging.enrichment_errors_path.parent.mkdir(parents=True, exist_ok=True)
 
 
 def _resolve_paths(config: AppConfig, base_dir: Path) -> AppConfig:
@@ -89,10 +104,14 @@ def _resolve_paths(config: AppConfig, base_dir: Path) -> AppConfig:
     index_dir=resolve_path(base_dir, storage.index_dir),
     chunk_metadata_path=resolve_path(base_dir, storage.chunk_metadata_path),
     manifest_path=resolve_path(base_dir, storage.manifest_path),
+    enriched_manifest_path=resolve_path(base_dir, storage.enriched_manifest_path),
   )
   resolved_logging = LoggingSettings(
-    summaries_path=resolve_path(base_dir, config.logging.summaries_path)
+    summaries_path=resolve_path(base_dir, config.logging.summaries_path),
+    audit_path=resolve_path(base_dir, config.logging.audit_path),
+    enrichment_errors_path=resolve_path(base_dir, config.logging.enrichment_errors_path),
   )
+  enrichment = config.enrichment or EnrichmentSettings()
   return AppConfig(
     config_version=config.config_version,
     chunking=config.chunking,
@@ -100,6 +119,7 @@ def _resolve_paths(config: AppConfig, base_dir: Path) -> AppConfig:
     retrieval=config.retrieval,
     storage=resolved_storage,
     logging=resolved_logging,
+    enrichment=enrichment,
   )
 
 
