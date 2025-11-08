@@ -44,6 +44,8 @@ def startup_event() -> None:
   configure_logging()
   CONFIG = load_config()
   CHUNK_STORE = ChunkStore(CONFIG.storage.chunk_metadata_path)
+  latest_run = CHUNK_STORE.latest_ingestion_run(CONFIG.logging.summaries_path)
+  CHUNK_STORE.verify_summary_versions(latest_run)
   RETRIEVER = Retriever(CONFIG)
   LLM = LLMService(CONFIG)
   logger.info(

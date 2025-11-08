@@ -201,7 +201,13 @@ enrichment_data = json.loads(response.choices[0].message.content)
 2. `IngestionPipeline` adjustments:
    - After `manifest = build_manifest(...)`, call `EnrichmentService.ensure_enriched(manifest)` which returns enriched DataFrame.
    - Write enriched manifest to `config.storage.manifest_path` so downstream chunk metadata inherits new columns when chunk rows are created (`pipeline._chunk_manifest` attaches doc-level columns).
-   - Update summary log to include `enrichment_version` and doc count with enrichment.
+- Update summary log to include `enrichment_version` and doc count with enrichment.
+- Summary log now records:
+  - `document_enrichment_version`: schema for document-level metadata.
+  - `chunk_enrichment_version`: schema for chunk-level metadata cache.
+  - `chunk_schema_version`: required columns in `chunks.parquet`.
+  - `embedding_set_version`: secondary embedding parquet schema.
+  - `enrichment_model`: OpenAI model string powering enrichment.
 3. Provide standalone CLI command `rag_ingestion enrich` to run enrichment without rebuilding embeddings, enabling iterative metadata refinement.
 
 ### Quality + Observability

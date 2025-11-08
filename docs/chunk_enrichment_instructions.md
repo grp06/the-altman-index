@@ -26,6 +26,7 @@ This document is aimed at the LLM/agent that will finish the remaining analytica
    - `doc_summary_embeddings.parquet`
    Each file should contain `id`, `vector`, `source_field`, `embedding_model`, `created_at`.
 3. **Indexing**: Option A: store the vectors in additional Chroma collections (e.g., `<collection>_summary`, `<collection>_intents`). Option B: extend the existing collection with metadata fields distinguishing vector types. Pick one approach and document it in code comments + README note.
+   - Implementation uses Option A with collections suffixed `_summary`, `_intents`, and `_docsum`.
 4. **Versioning**: Include `embedding_set_version` in each Parquet file so rebuilds can compare versions before reusing cached vectors.
 
 ## 3. Summary Log Versioning

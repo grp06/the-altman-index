@@ -44,6 +44,7 @@ cd apps/frontend && npm install && cd -
 
 ## Ingestion CLI
 The ingestion pipeline reads from `var/data`, writes manifests/parquet files to `var/artifacts`, and logs summaries to `var/artifacts/logs/ingestion_runs.jsonl`.
+Document and chunk enrichment happen automatically during rebuild/append runs, so every chunk in `chunks.parquet` includes summaries, intents, sentiment, and claims ready for downstream retrieval.
 
 ```bash
 # Validate directories + config
@@ -59,7 +60,11 @@ var/
   artifacts/
     index/                      # Chroma persistent store
     metadata/
+      chunk_intents_embeddings.parquet
+      chunk_summary_embeddings.parquet
+      doc_summary_embeddings.parquet
       chunks.parquet            # Chunk manifest with ids + metadata
+      manifest_enriched.parquet # Document-level enrichment output
       manifest.parquet          # Transcript-level manifest
     logs/
       ingestion_runs.jsonl      # One JSON line per run
@@ -87,6 +92,8 @@ cd apps/frontend
 cp .env.example .env.local        # default points to http://localhost:8018
 npm run dev                       # http://localhost:3000
 ```
+
+Secondary embeddings for chunk summaries, chunk intents, and document summaries are written to dedicated Parquet files and mirrored into Chroma collections suffixed with `_summary`, `_intents`, and `_docsum`. This keeps analytical retrieval paths isolated without touching the primary semantic index.
 
 The UI walks users through:
 1. Selecting a question (or choosing from pill-based suggestions).

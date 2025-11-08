@@ -1,12 +1,21 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Optional
 
 import pandas as pd
 from rag_core.logging import get_logger
+from rag_core.schema_versions import (
+  CHUNK_ENRICHMENT_VERSION,
+  CHUNK_SCHEMA_VERSION,
+  DOCUMENT_ENRICHMENT_VERSION,
+  EMBEDDING_SET_VERSION,
+  ENRICHMENT_MODEL_NAME,
+)
 
 logger = get_logger(__name__)
+
+REQUIRED_COLUMNS = {"chunk_summary", "chunk_intents", "chunk_sentiment", "chunk_claims", "chunk_enrichment_version"}
 
 
 class ChunkStore:
@@ -21,6 +30,11 @@ class ChunkStore:
     frame = pd.read_parquet(self.chunk_path)
     if "id" not in frame.columns:
       raise ValueError("Chunk metadata missing id column")
+    missing = REQUIRED_COLUMNS - set(frame.columns)
+    if missing:
+      raise ValueError(
+        f"Chunk metadata missing required enrichment columns: {sorted(missing)} for schema v{CHUNK_SCHEMA_VERSION}. Run ingestion to rebuild chunks."
+      )
     self._frame = frame.set_index("id")
     logger.info("Loaded %s chunks into store", len(self._frame))
 
@@ -54,3 +68,20 @@ class ChunkStore:
     except json.JSONDecodeError:
       return None
     return data
+
+  def verify_summary_versions(self, summary: Optional[dict]) -> None:
+    if not summary:
+      raise RuntimeError("No ingestion summaries found; run ingestion before starting the backend.")
+    expectations = {
+      "chunk_schema_version": CHUNK_SCHEMA_VERSION,
+      "chunk_enrichment_version": CHUNK_ENRICHMENT_VERSION,
+      "document_enrichment_version": DOCUMENT_ENRICHMENT_VERSION,
+      "embedding_set_version": EMBEDDING_SET_VERSION,
+      "enrichment_model": ENRICHMENT_MODEL_NAME,
+    }
+    for key, expected in expectations.items():
+      actual = summary.get(key)
+      if actual != expected:
+        raise RuntimeError(
+          f"Ingestion summary mismatch for {key}: expected {expected}, got {actual}. Rebuild ingestion artifacts before serving."
+        )

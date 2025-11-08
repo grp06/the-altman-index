@@ -16,6 +16,9 @@ storage:
   chunk_metadata_path: var/artifacts/metadata/chunks.parquet
   manifest_path: var/artifacts/metadata/manifest.parquet
   enriched_manifest_path: var/artifacts/metadata/manifest_enriched.parquet
+  chunk_summary_embeddings_path: var/artifacts/metadata/chunk_summary_embeddings.parquet
+  chunk_intents_embeddings_path: var/artifacts/metadata/chunk_intents_embeddings.parquet
+  doc_summary_embeddings_path: var/artifacts/metadata/doc_summary_embeddings.parquet
 logging:
   summaries_path: var/artifacts/logs/ingestion_runs.jsonl
   audit_path: var/artifacts/logs/corpus_audit.jsonl

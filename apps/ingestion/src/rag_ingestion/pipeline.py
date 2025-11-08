@@ -1,22 +1,30 @@
 from __future__ import annotations
 
 import json
-import logging
-import time
 import math
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
 import pandas as pd
 from rag_core.logging import get_logger
+from rag_core.schema_versions import (
+  CHUNK_ENRICHMENT_VERSION,
+  CHUNK_SCHEMA_VERSION,
+  DOCUMENT_ENRICHMENT_VERSION,
+  EMBEDDING_SET_VERSION,
+  ENRICHMENT_MODEL_NAME,
+)
 
+from .chunk_enrichment import ChunkEnrichmentService
 from .chunker import Chunker
 from .config import LoadedConfig
 from .embeddings import EmbeddingClient
-from .enrichment import DocumentEnrichmentService, ENRICHMENT_SCHEMA_VERSION
+from .enrichment import DocumentEnrichmentService
 from .indexer import ChromaIndexer
 from .manifest import build_manifest
+from .secondary_embeddings import SecondaryEmbeddingService
 
 logger = get_logger(__name__)
 
@@ -33,6 +41,8 @@ class IngestionPipeline:
       batch_size=config.embedding.batch_size,
     )
     self.enrichment = DocumentEnrichmentService(config)
+    self.chunk_enrichment = ChunkEnrichmentService(config)
+    self.secondary_embeddings = SecondaryEmbeddingService(config, self.embed_client)
     self.indexer = ChromaIndexer(
       index_path=str(config.storage.index_dir),
       collection_name=config.retrieval.collection_name,
@@ -47,7 +57,13 @@ class IngestionPipeline:
     enriched_manifest = self.enrichment.ensure_enriched(manifest)
     # like a table of chunks to create
     chunks_df = self._chunk_manifest(enriched_manifest)
+    chunks_df = self.chunk_enrichment.ensure_enriched(chunks_df)
     self._persist_dataframes(enriched_manifest, chunks_df)
+    secondary_payloads = self.secondary_embeddings.generate(
+      mode="rebuild",
+      chunks=chunks_df,
+      manifest=enriched_manifest,
+    )
     embeddings = self._embed_chunks(chunks_df)
     self.indexer.reset()
     self.indexer.upsert(
@@ -56,6 +72,14 @@ class IngestionPipeline:
       metadatas=chunks_df.drop(columns=["text"]).to_dict(orient="records"),
       documents=chunks_df["text"].tolist(),
     )
+    for key, payload in secondary_payloads.items():
+      self.indexer.upsert_secondary(
+        key=key,
+        ids=payload["ids"],
+        embeddings=payload["embeddings"],
+        metadatas=payload["metadatas"],
+        documents=payload["documents"],
+      )
     elapsed = time.perf_counter() - start
     summary = self._build_summary(
       mode="rebuild",
@@ -77,6 +101,7 @@ class IngestionPipeline:
     manifest = build_manifest(self.config.storage.transcripts_dir, self.config.storage.metadata_dir)
     enriched_full = self.enrichment.ensure_enriched(manifest)
     existing_chunks = pd.read_parquet(self.config.storage.chunk_metadata_path)
+    self._ensure_chunk_schema(existing_chunks)
     processed_docs = set(existing_chunks["doc_id"].unique())
     enriched_manifest = enriched_full[~enriched_full["doc_id"].isin(processed_docs)]
     if enriched_manifest.empty:
@@ -92,8 +117,14 @@ class IngestionPipeline:
       self._write_summary(summary)
       return summary
     chunks_df = self._chunk_manifest(enriched_manifest)
+    chunks_df = self.chunk_enrichment.ensure_enriched(chunks_df)
     combined_chunks = pd.concat([existing_chunks, chunks_df], ignore_index=True)
     self._persist_dataframes(manifest=None, chunks=combined_chunks, new_manifest=enriched_manifest)
+    secondary_payloads = self.secondary_embeddings.generate(
+      mode="append",
+      chunks=chunks_df,
+      manifest=enriched_manifest,
+    )
     embeddings = self._embed_chunks(chunks_df)
     self.indexer.upsert(
       ids=chunks_df["id"].tolist(),
@@ -101,6 +132,14 @@ class IngestionPipeline:
       metadatas=chunks_df.drop(columns=["text"]).to_dict(orient="records"),
       documents=chunks_df["text"].tolist(),
     )
+    for key, payload in secondary_payloads.items():
+      self.indexer.upsert_secondary(
+        key=key,
+        ids=payload["ids"],
+        embeddings=payload["embeddings"],
+        metadatas=payload["metadatas"],
+        documents=payload["documents"],
+      )
     summary = self._build_summary(
       mode="append",
       manifest=enriched_manifest,
@@ -206,7 +245,11 @@ class IngestionPipeline:
       "duration_seconds": duration_seconds,
       "skipped": skipped,
       "config_path": str(self.config.config_path),
-      "enrichment_version": ENRICHMENT_SCHEMA_VERSION,
+      "document_enrichment_version": DOCUMENT_ENRICHMENT_VERSION,
+      "chunk_enrichment_version": CHUNK_ENRICHMENT_VERSION,
+      "chunk_schema_version": CHUNK_SCHEMA_VERSION,
+      "embedding_set_version": EMBEDDING_SET_VERSION,
+      "enrichment_model": ENRICHMENT_MODEL_NAME,
       "total_enriched_documents": enrichment_total,
     }
     return summary
@@ -229,6 +272,16 @@ class IngestionPipeline:
       return int(value)
     except (TypeError, ValueError):
       return 0
+
+  def _ensure_chunk_schema(self, frame: pd.DataFrame) -> None:
+    if frame.empty:
+      return
+    required = {"chunk_summary", "chunk_intents", "chunk_sentiment", "chunk_claims", "chunk_enrichment_version"}
+    missing = required - set(frame.columns)
+    if missing:
+      raise ValueError(
+        f"Existing chunk metadata missing required columns: {sorted(missing)}. Run a full rebuild to refresh artifacts."
+      )
 
   def _write_summary(self, summary: dict) -> None:
     summaries_path = self.config.logging.summaries_path

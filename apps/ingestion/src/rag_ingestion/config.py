@@ -32,6 +32,9 @@ class StorageSettings(BaseModel):
   chunk_metadata_path: Path
   manifest_path: Path
   enriched_manifest_path: Path
+  chunk_summary_embeddings_path: Path
+  chunk_intents_embeddings_path: Path
+  doc_summary_embeddings_path: Path
 
 
 class LoggingSettings(BaseModel):
@@ -42,6 +45,7 @@ class LoggingSettings(BaseModel):
 
 class EnrichmentSettings(BaseModel):
   max_workers: int = Field(8, ge=1, le=64)
+  chunk_max_workers: Optional[int] = Field(None, ge=1, le=64)
 
 
 class AppConfig(BaseModel):
@@ -90,6 +94,9 @@ class LoadedConfig:
     self.storage.chunk_metadata_path.parent.mkdir(parents=True, exist_ok=True)
     self.storage.manifest_path.parent.mkdir(parents=True, exist_ok=True)
     self.storage.enriched_manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    self.storage.chunk_summary_embeddings_path.parent.mkdir(parents=True, exist_ok=True)
+    self.storage.chunk_intents_embeddings_path.parent.mkdir(parents=True, exist_ok=True)
+    self.storage.doc_summary_embeddings_path.parent.mkdir(parents=True, exist_ok=True)
     self.logging.summaries_path.parent.mkdir(parents=True, exist_ok=True)
     self.logging.audit_path.parent.mkdir(parents=True, exist_ok=True)
     self.logging.enrichment_errors_path.parent.mkdir(parents=True, exist_ok=True)
@@ -105,6 +112,9 @@ def _resolve_paths(config: AppConfig, base_dir: Path) -> AppConfig:
     chunk_metadata_path=resolve_path(base_dir, storage.chunk_metadata_path),
     manifest_path=resolve_path(base_dir, storage.manifest_path),
     enriched_manifest_path=resolve_path(base_dir, storage.enriched_manifest_path),
+    chunk_summary_embeddings_path=resolve_path(base_dir, storage.chunk_summary_embeddings_path),
+    chunk_intents_embeddings_path=resolve_path(base_dir, storage.chunk_intents_embeddings_path),
+    doc_summary_embeddings_path=resolve_path(base_dir, storage.doc_summary_embeddings_path),
   )
   resolved_logging = LoggingSettings(
     summaries_path=resolve_path(base_dir, config.logging.summaries_path),

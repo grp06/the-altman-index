@@ -10,13 +10,12 @@ from typing import Dict, Iterable, List, Optional, Tuple
 import pandas as pd
 from openai import OpenAI
 from rag_core.logging import get_logger
+from rag_core.schema_versions import DOCUMENT_ENRICHMENT_VERSION, ENRICHMENT_MODEL_NAME
 
 from .config import LoadedConfig
 from .transcript import TranscriptAnalysis, TranscriptNormalizer
 
 logger = get_logger(__name__)
-
-ENRICHMENT_SCHEMA_VERSION = 1
 
 ENRICHMENT_SCHEMA = {
   "type": "object",
@@ -85,6 +84,7 @@ class DocumentEnrichmentService:
     self.cache_dir = config.storage.artifacts_dir / "enrichment" / "raw"
     self.cache_dir.mkdir(parents=True, exist_ok=True)
     self.max_workers = max(1, config.enrichment.max_workers)
+    self.model_name = ENRICHMENT_MODEL_NAME
 
   def ensure_enriched(self, manifest: pd.DataFrame, force: bool = False) -> pd.DataFrame:
     records = manifest.to_dict(orient="records")
@@ -152,12 +152,12 @@ class DocumentEnrichmentService:
       payload = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
       return None
-    if payload.get("version") != ENRICHMENT_SCHEMA_VERSION:
+    if payload.get("version") != DOCUMENT_ENRICHMENT_VERSION:
       return None
     return payload.get("data")
 
   def _write_cache(self, doc_id: str, data: dict) -> None:
-    payload = {"version": ENRICHMENT_SCHEMA_VERSION, "data": data}
+    payload = {"version": DOCUMENT_ENRICHMENT_VERSION, "data": data}
     path = self.cache_dir / f"{doc_id}.json"
     path.write_text(json.dumps(payload), encoding="utf-8")
 
@@ -190,7 +190,7 @@ class DocumentEnrichmentService:
     client = self.client or OpenAI(api_key=self.api_key)
     try:
       response = client.responses.create(
-        model="gpt-5",
+        model=self.model_name,
         input=[
           {
             "role": "system",
@@ -246,7 +246,7 @@ class DocumentEnrichmentService:
     merged["token_count"] = analysis.token_count
     merged["sam_turns"] = analysis.sam_turns
     merged["turn_count"] = len(analysis.turns)
-    merged["enrichment_version"] = ENRICHMENT_SCHEMA_VERSION
+    merged["enrichment_version"] = DOCUMENT_ENRICHMENT_VERSION
     merged["enriched_at"] = datetime.now(timezone.utc).isoformat()
     return merged
 
