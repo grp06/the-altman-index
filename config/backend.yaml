@@ -4,10 +4,38 @@ storage:
   index_dir: var/artifacts/index
   chunk_metadata_path: var/artifacts/metadata/chunks.parquet
   manifest_path: var/artifacts/metadata/manifest.parquet
+  enriched_manifest_path: var/artifacts/metadata/manifest_enriched.parquet
+  chunk_summary_embeddings_path: var/artifacts/metadata/chunk_summary_embeddings.parquet
+  chunk_intents_embeddings_path: var/artifacts/metadata/chunk_intents_embeddings.parquet
+  doc_summary_embeddings_path: var/artifacts/metadata/doc_summary_embeddings.parquet
 retrieval:
   collection_name: sam_altman_interviews
-  top_k: 5
+  top_k: 6
   distance_metric: cosine
+  profiles:
+    factual:
+      collections:
+        - primary
+      per_collection_k:
+        primary: 6
+    analytical:
+      collections:
+        - primary
+        - summary
+        - intents
+      per_collection_k:
+        primary: 5
+        summary: 5
+        intents: 4
+    comparative:
+      collections:
+        - primary
+        - docsum
+        - summary
+      per_collection_k:
+        primary: 4
+        docsum: 6
+        summary: 3
 models:
   classifier: gpt-4o
   synthesizer: gpt-4o

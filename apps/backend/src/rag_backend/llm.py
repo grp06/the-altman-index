@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import List
+from typing import List, Optional
 
 from openai import OpenAI
 from rag_core.logging import get_logger
@@ -63,8 +63,18 @@ class LLMService:
       title = ctx.get("title") or ctx.get("source_name") or ctx["doc_id"]
       source = ctx.get("youtube_url") or ctx.get("source_path")
       snippet = ctx["text"]
+      summary = self._string_or_none(ctx.get("chunk_summary"))
+      claims = self._parse_list(ctx.get("chunk_claims"))
       context_lines.append(
-        f"[{idx}] Title: {title}\nSource: {source}\nChunk: {snippet}"
+        "\n".join(
+          [
+            f"[{idx}] Title: {title}",
+            f"Source: {source}",
+            *( [f"Summary: {summary}"] if summary else [] ),
+            *( [f"Claims: {'; '.join(claims[:4])}"] if claims else [] ),
+            f"Chunk: {snippet}",
+          ]
+        )
       )
     joined_context = "\n\n".join(context_lines) if context_lines else "No context provided."
     instructions = (
@@ -114,3 +124,32 @@ class LLMService:
     if not isinstance(reasoning, list) or not all(isinstance(item, str) for item in reasoning):
       raise ValueError("Reasoning must be a list of strings")
     return {"answer": answer, "reasoning": reasoning}
+
+  def _parse_list(self, value: object) -> List[str]:
+    if value is None:
+      return []
+    if isinstance(value, list):
+      return [item.strip() for item in value if isinstance(item, str) and item.strip()]
+    if isinstance(value, str):
+      text = value.strip()
+      if not text:
+        return []
+      try:
+        parsed = json.loads(text)
+      except json.JSONDecodeError:
+        parsed = [text]
+      if isinstance(parsed, list):
+        result = []
+        for entry in parsed:
+          entry_str = str(entry).strip()
+          if entry_str:
+            result.append(entry_str)
+        return result
+      return [text]
+    return []
+
+  def _string_or_none(self, value: object) -> Optional[str]:
+    if value is None:
+      return None
+    text = str(value).strip()
+    return text or None

@@ -1,4 +1,4 @@
-.PHONY: backend-dev ingestion-validate ingestion-rebuild ingestion-audit ingestion-enrich
+.PHONY: backend-dev ingestion-validate ingestion-rebuild ingestion-audit ingestion-enrich ingestion-inspect
 
 backend-dev:
 	uv run --env-file .env --project apps/backend uvicorn rag_backend.main:app --reload --port 8018
@@ -14,3 +14,6 @@ ingestion-audit:
 
 ingestion-enrich:
 	uv run --env-file .env --project apps/ingestion python -m rag_ingestion.cli enrich
+
+ingestion-inspect:
+	uv run --env-file .env --project apps/ingestion python -m rag_ingestion.cli inspect

@@ -2,6 +2,16 @@
 
 import { useMemo, useState } from 'react';
 import styles from './page.module.css';
+import {
+  Chunk,
+  RetrievalMetadata,
+  SearchResult,
+  buildDocsumGroups,
+  buildIntentGroups,
+  buildSentimentGroups,
+  formatVectorSourceLabel,
+  mapChunk,
+} from './lib/retrieval';
 
 type Stage = 'idle' | 'classifying' | 'retrieving' | 'synthesizing' | 'complete' | 'error';
 
@@ -12,27 +22,14 @@ type ClassificationResult = {
   confidence: number;
 };
 
-type ChunkMetadata = {
-  title?: string;
-  upload_date?: string;
-  youtube_url?: string;
-  source_path?: string;
-  source_name?: string;
-};
-
-type Chunk = {
-  id: string;
-  snippet: string;
-  score: number;
-  metadata: ChunkMetadata;
-};
-
 type SynthesisResult = {
   answer: string;
   reasoning: string[];
 };
 
 type StepStatus = 'pending' | 'active' | 'done' | 'error';
+
+type RetrievalView = 'list' | 'intents' | 'sentiment' | 'docsum';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8018';
 
@@ -134,6 +131,9 @@ const stageIndexMap: Record<Stage, number> = {
   error: 3,
 };
 
+
+
+
 function getChunkTitle(chunk: Chunk): string {
   const title = chunk.metadata.title?.trim();
   if (title) {
@@ -162,35 +162,6 @@ function getChunkSource(chunk: Chunk): string {
   return chunk.id;
 }
 
-function mapChunk(raw: unknown): Chunk {
-  if (typeof raw !== 'object' || raw === null) {
-    console.error('invalid chunk record', raw);
-    throw new Error('Invalid chunk in retrieval response.');
-  }
-  const candidate = raw as { id?: unknown; snippet?: unknown; score?: unknown; metadata?: unknown };
-  if (typeof candidate.id !== 'string' || typeof candidate.snippet !== 'string' || typeof candidate.score !== 'number') {
-    console.error('invalid chunk record', raw);
-    throw new Error('Invalid chunk in retrieval response.');
-  }
-  if (typeof candidate.metadata !== 'object' || candidate.metadata === null) {
-    console.error('chunk metadata missing', raw);
-    throw new Error('Invalid chunk in retrieval response.');
-  }
-  const rawMetadata = candidate.metadata as Record<string, unknown>;
-  const metadata: ChunkMetadata = {
-    title: typeof rawMetadata.title === 'string' ? rawMetadata.title : undefined,
-    upload_date: typeof rawMetadata.upload_date === 'string' ? rawMetadata.upload_date : undefined,
-    youtube_url: typeof rawMetadata.youtube_url === 'string' ? rawMetadata.youtube_url : undefined,
-    source_path: typeof rawMetadata.source_path === 'string' ? rawMetadata.source_path : undefined,
-    source_name: typeof rawMetadata.source_name === 'string' ? rawMetadata.source_name : undefined,
-  };
-  return {
-    id: candidate.id,
-    snippet: candidate.snippet,
-    score: candidate.score,
-    metadata,
-  };
-}
 
 function isQuestionTypeKey(value: string): value is QuestionTypeKey {
   return ['factual', 'analytical', 'meta', 'exploratory', 'comparative', 'creative'].includes(value);
@@ -262,13 +233,17 @@ async function classifyQuestion(query: string): Promise<ClassificationResult> {
   };
 }
 
-async function retrieveChunks(query: string, type: QuestionTypeKey): Promise<Chunk[]> {
+async function retrieveChunks(query: string, type: QuestionTypeKey): Promise<SearchResult> {
+  const payload: Record<string, unknown> = {
+    query,
+    question_type: type,
+  };
   const response = await fetch(`${API_BASE_URL}/search`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ query, question_type: type }),
+    body: JSON.stringify(payload),
     cache: 'no-store',
   });
   if (!response.ok) {
@@ -280,7 +255,34 @@ async function retrieveChunks(query: string, type: QuestionTypeKey): Promise<Chu
     console.error('invalid search payload', data);
     throw new Error('Invalid search response.');
   }
-  return data.chunks.map((chunk: unknown) => mapChunk(chunk));
+  if (typeof data.retrieval_mode !== 'string' || typeof data.aggregated_count !== 'number') {
+    console.error('missing retrieval metadata', data);
+    throw new Error('Invalid search response.');
+  }
+  if (!Array.isArray(data.collections_used)) {
+    console.error('invalid collection usage payload', data.collections_used);
+    throw new Error('Invalid search response.');
+  }
+  const collections = data.collections_used.map((entry: unknown) => {
+    if (typeof entry !== 'object' || entry === null) {
+      console.error('invalid collection entry', entry);
+      throw new Error('Invalid search response.');
+    }
+    const usage = entry as { source?: unknown; name?: unknown; requested?: unknown; returned?: unknown };
+    if (typeof usage.source !== 'string' || typeof usage.name !== 'string' || typeof usage.requested !== 'number' || typeof usage.returned !== 'number') {
+      console.error('invalid collection usage entry', entry);
+      throw new Error('Invalid search response.');
+    }
+    return usage;
+  });
+  return {
+    chunks: data.chunks.map((chunk: unknown) => mapChunk(chunk)),
+    meta: {
+      mode: data.retrieval_mode,
+      aggregatedCount: data.aggregated_count,
+      collections,
+    },
+  };
 }
 
 async function synthesizeAnswer(query: string, type: QuestionTypeKey, chunks: Chunk[]): Promise<SynthesisResult> {
@@ -320,11 +322,13 @@ export default function Home() {
   const [selectedType, setSelectedType] = useState<QuestionTypeKey>('factual');
   const [classification, setClassification] = useState<ClassificationResult | null>(null);
   const [chunks, setChunks] = useState<Chunk[]>([]);
+  const [retrievalMeta, setRetrievalMeta] = useState<RetrievalMetadata | null>(null);
   const [synthesis, setSynthesis] = useState<SynthesisResult | null>(null);
   const [stage, setStage] = useState<Stage>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'answer' | 'chunks' | 'trace'>('answer');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [retrievalView, setRetrievalView] = useState<RetrievalView>('list');
 
   const suggestions = useMemo(() => QUESTION_TYPES[selectedType].suggestions, [selectedType]);
 
@@ -341,19 +345,22 @@ export default function Home() {
     setErrorMessage(null);
     setClassification(null);
     setChunks([]);
+    setRetrievalMeta(null);
     setSynthesis(null);
     setActiveTab('answer');
+    setRetrievalView('list');
     try {
       const classificationResult = await classifyQuestion(input);
       setClassification(classificationResult);
       setStage('retrieving');
-      const retrievedChunks = await retrieveChunks(input, classificationResult.type);
-      if (retrievedChunks.length === 0) {
+      const retrievalResult = await retrieveChunks(input, classificationResult.type);
+      if (retrievalResult.chunks.length === 0) {
         throw new Error('Retrieval returned no chunks.');
       }
-      setChunks(retrievedChunks);
+      setChunks(retrievalResult.chunks);
+      setRetrievalMeta(retrievalResult.meta);
       setStage('synthesizing');
-      const synthesisResult = await synthesizeAnswer(input, classificationResult.type, retrievedChunks);
+      const synthesisResult = await synthesizeAnswer(input, classificationResult.type, retrievalResult.chunks);
       setSynthesis(synthesisResult);
       setStage('complete');
     } catch (error) {
@@ -397,7 +404,7 @@ export default function Home() {
   };
 
   const classificationReady = stageIndexMap[stage] > stageIndexMap.classifying && classification;
-  const retrievalReady = stageIndexMap[stage] > stageIndexMap.retrieving && chunks.length > 0;
+  const retrievalReady = stageIndexMap[stage] > stageIndexMap.retrieving && chunks.length > 0 && !!retrievalMeta;
   const synthesisReady = stageIndexMap[stage] > stageIndexMap.synthesizing && synthesis;
 
   const renderRetrievalVisual = () => {
@@ -423,31 +430,73 @@ export default function Home() {
     if (stage === 'error' && !retrievalReady) {
       return <div className={styles.placeholderText}>Retrieval failed.</div>;
     }
-    if (!retrievalReady) {
+    if (!retrievalReady || !retrievalMeta) {
       return <div className={styles.placeholderText}>Retrieval output will appear once chunks are available.</div>;
     }
-    return (
+    const intentGroups = buildIntentGroups(chunks);
+    const sentimentGroups = buildSentimentGroups(chunks);
+    const docsumGroups = buildDocsumGroups(chunks);
+    const hasIntentData = intentGroups.length > 0;
+    const hasSentimentData = sentimentGroups.length > 0;
+    const hasDocsumView = docsumGroups.length > 0;
+    const viewOptions: { key: RetrievalView; label: string; enabled: boolean }[] = [
+      { key: 'list', label: 'Ranked list', enabled: true },
+      { key: 'intents', label: 'Intent clusters', enabled: hasIntentData },
+      { key: 'sentiment', label: 'Sentiment bands', enabled: hasSentimentData },
+      { key: 'docsum', label: 'Comparative view', enabled: hasDocsumView },
+    ].filter((option) => option.enabled);
+    const availableKeys = viewOptions.map((option) => option.key);
+    const activeView = availableKeys.includes(retrievalView) ? retrievalView : 'list';
+    const normalizedMode = retrievalMeta.mode.trim() || 'Mode';
+    const modeLabel = `${normalizedMode.charAt(0).toUpperCase()}${normalizedMode.slice(1)} retrieval`;
+    const collectionSummary =
+      retrievalMeta.collections.length === 0
+        ? 'No collections queried'
+        : retrievalMeta.collections
+            .map((collection) => `${formatVectorSourceLabel(collection.source)} ${collection.returned}/${collection.requested}`)
+            .join(' · ');
+    const renderListView = () => (
       <div className={styles.retrievalScroller}>
         {chunks.map((chunk) => {
           const formattedDate = formatUploadDate(chunk.metadata.upload_date);
-          const badges = formattedDate ? [formattedDate] : [];
           const youtubeUrl = chunk.metadata.youtube_url?.trim();
           return (
             <article key={chunk.id} className={styles.retrievalCard}>
               <div className={styles.retrievalHeader}>
-                <div className={styles.retrievalTitle}>{getChunkTitle(chunk)}</div>
+                <div>
+                  <div className={styles.retrievalTitle}>{getChunkTitle(chunk)}</div>
+                  <div className={styles.vectorSourceTag}>{formatVectorSourceLabel(chunk.vectorSource)}</div>
+                </div>
                 <div className={styles.retrievalScore}>{(chunk.score * 100).toFixed(1)}%</div>
               </div>
-              {badges.length > 0 && (
-                <div className={styles.retrievalMeta}>
-                  {badges.map((badge) => (
-                    <span key={`${chunk.id}-${badge}`} className={styles.retrievalMetaBadge}>
-                      {badge}
+              <div className={styles.retrievalMeta}>
+                {formattedDate && (
+                  <span className={styles.retrievalMetaBadge}>
+                    {formattedDate}
+                  </span>
+                )}
+                {chunk.chunkSentiment && <span className={`${styles.retrievalMetaBadge} ${styles.sentimentBadge}`}>{chunk.chunkSentiment}</span>}
+              </div>
+              {chunk.chunkSummary && <div className={styles.chunkSummary}>{chunk.chunkSummary}</div>}
+              <div className={styles.retrievalSnippet}>{chunk.snippet}</div>
+              {chunk.chunkIntents.length > 0 && (
+                <div className={styles.intentChips}>
+                  {chunk.chunkIntents.slice(0, 4).map((intent) => (
+                    <span key={`${chunk.id}-${intent}`} className={styles.intentChip}>
+                      {intent}
                     </span>
                   ))}
                 </div>
               )}
-              <div className={styles.retrievalSnippet}>{chunk.snippet}</div>
+              {chunk.chunkClaims.length > 0 && (
+                <ul className={styles.claimList}>
+                  {chunk.chunkClaims.slice(0, 2).map((claim) => (
+                    <li key={`${chunk.id}-claim-${claim}`} className={styles.claimItem}>
+                      {claim}
+                    </li>
+                  ))}
+                </ul>
+              )}
               {youtubeUrl && (
                 <a href={youtubeUrl} target="_blank" rel="noreferrer" className={styles.retrievalLink}>
                   Open interview
@@ -456,6 +505,111 @@ export default function Home() {
             </article>
           );
         })}
+      </div>
+    );
+    const renderIntentClusters = () => {
+      if (intentGroups.length === 0) {
+        return <div className={styles.placeholderText}>No intent annotations available for this answer.</div>;
+      }
+      return (
+        <div className={styles.clusterGrid}>
+          {intentGroups.slice(0, 6).map((group) => (
+            <div key={group.intent} className={styles.clusterCard}>
+              <div className={styles.clusterTitle}>{group.intent}</div>
+              <div className={styles.clusterCount}>{group.items.length} chunks</div>
+              <ul className={styles.clusterItems}>
+                {group.items.slice(0, 4).map((chunk) => (
+                  <li key={`${group.intent}-${chunk.id}`} className={styles.clusterItem}>
+                    {getChunkTitle(chunk)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      );
+    };
+    const renderSentimentClusters = () => {
+      if (sentimentGroups.length === 0) {
+        return <div className={styles.placeholderText}>No sentiment annotations available.</div>;
+      }
+      return (
+        <div className={styles.clusterGrid}>
+          {sentimentGroups.map((group) => (
+            <div key={group.sentiment} className={styles.clusterCard}>
+              <div className={styles.clusterTitle}>{group.sentiment}</div>
+              <div className={styles.clusterCount}>{group.items.length} chunks</div>
+              <ul className={styles.clusterItems}>
+                {group.items.slice(0, 4).map((chunk) => (
+                  <li key={`${group.sentiment}-${chunk.id}`} className={styles.clusterItem}>
+                    {getChunkTitle(chunk)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      );
+    };
+    const renderDocsumView = () => {
+      if (docsumGroups.length === 0) {
+        return <div className={styles.placeholderText}>Comparative view activates when doc summaries surface.</div>;
+      }
+      return (
+        <div className={styles.docsumGrid}>
+          {docsumGroups.map((group) => {
+            const title = getChunkTitle(group.chunk);
+            const uploadDate = formatUploadDate(group.chunk.metadata.upload_date);
+            const timeSpan = group.chunk.metadata.time_span?.trim() ?? null;
+            const url = group.chunk.metadata.youtube_url?.trim() ?? null;
+            return (
+              <article key={group.docId} className={styles.docsumCard}>
+                <div className={styles.docsumHeader}>
+                  <div>
+                    <div className={styles.docsumTitle}>{title}</div>
+                    {timeSpan && <div className={styles.docsumMeta}>{timeSpan}</div>}
+                  </div>
+                  {uploadDate && <span className={styles.docsumMeta}>{uploadDate}</span>}
+                </div>
+                <div className={styles.docsumSnippet}>{group.chunk.snippet}</div>
+                {url && (
+                  <a href={url} target="_blank" rel="noreferrer" className={styles.docsumLink}>
+                    Open interview
+                  </a>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      );
+    };
+    return (
+      <div className={styles.retrievalPanel}>
+        <div className={styles.retrievalMetaBar}>
+          <div className={styles.retrievalModePill}>{modeLabel}</div>
+          <div className={styles.retrievalMetaStats}>
+            <span>{`${retrievalMeta.aggregatedCount} vector hits`}</span>
+            <span>{collectionSummary}</span>
+          </div>
+        </div>
+        {viewOptions.length > 1 && (
+          <div className={styles.retrievalViews}>
+            {viewOptions.map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                className={`${styles.retrievalViewButton} ${activeView === option.key ? styles.retrievalViewActive : ''}`}
+                onClick={() => setRetrievalView(option.key)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {activeView === 'list' && renderListView()}
+        {activeView === 'intents' && renderIntentClusters()}
+        {activeView === 'sentiment' && renderSentimentClusters()}
+        {activeView === 'docsum' && renderDocsumView()}
       </div>
     );
   };
@@ -652,11 +806,36 @@ export default function Home() {
                 {chunks.map((chunk) => (
                   <div key={chunk.id} className={styles.chunkCard}>
                     <div className={styles.chunkHeader}>
-                      <div className={styles.chunkTitle}>{getChunkTitle(chunk)}</div>
+                      <div>
+                        <div className={styles.chunkTitle}>{getChunkTitle(chunk)}</div>
+                        <div className={styles.vectorSourceTag}>{formatVectorSourceLabel(chunk.vectorSource)}</div>
+                      </div>
                       <div className={styles.chunkScore}>{(chunk.score * 100).toFixed(1)}%</div>
                     </div>
+                    <div className={styles.chunkSourceRow}>
+                      <div className={styles.chunkSource}>{getChunkSource(chunk)}</div>
+                      {chunk.chunkSentiment && <span className={styles.sentimentBadge}>{chunk.chunkSentiment}</span>}
+                    </div>
+                    {chunk.chunkSummary && <p className={styles.chunkSummary}>{chunk.chunkSummary}</p>}
                     <p className={styles.chunkSnippet}>{chunk.snippet}</p>
-                    <div className={styles.chunkSource}>{getChunkSource(chunk)}</div>
+                    {chunk.chunkIntents.length > 0 && (
+                      <div className={styles.intentChips}>
+                        {chunk.chunkIntents.slice(0, 4).map((intent) => (
+                          <span key={`${chunk.id}-intent-${intent}`} className={styles.intentChip}>
+                            {intent}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {chunk.chunkClaims.length > 0 && (
+                      <ul className={styles.claimList}>
+                        {chunk.chunkClaims.slice(0, 3).map((claim) => (
+                          <li key={`${chunk.id}-detail-${claim}`} className={styles.claimItem}>
+                            {claim}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 ))}
               </div>

@@ -22,6 +22,7 @@ class ChunkStore:
   def __init__(self, chunk_path: Path):
     self.chunk_path = chunk_path
     self._frame = pd.DataFrame()
+    self._doc_index: Dict[str, str] = {}
     self.load()
 
   def load(self) -> None:
@@ -36,6 +37,13 @@ class ChunkStore:
         f"Chunk metadata missing required enrichment columns: {sorted(missing)} for schema v{CHUNK_SCHEMA_VERSION}. Run ingestion to rebuild chunks."
       )
     self._frame = frame.set_index("id")
+    doc_index = (
+      frame[["id", "doc_id"]]
+      .drop_duplicates(subset=["doc_id"])
+      .set_index("doc_id")["id"]
+      .to_dict()
+    )
+    self._doc_index = {str(doc): str(chunk_id) for doc, chunk_id in doc_index.items()}
     logger.info("Loaded %s chunks into store", len(self._frame))
 
   def get_by_ids(self, chunk_ids: Iterable[str]) -> List[dict]:
@@ -47,6 +55,16 @@ class ChunkStore:
       row["id"] = chunk_id
       rows.append(row)
     return rows
+
+  def metadata_for(self, chunk_id: str) -> dict:
+    if chunk_id not in self._frame.index:
+      raise KeyError(f"Chunk id not found: {chunk_id}")
+    row = self._frame.loc[chunk_id].to_dict()
+    row["id"] = chunk_id
+    return row
+
+  def doc_anchor(self, doc_id: str) -> Optional[str]:
+    return self._doc_index.get(doc_id)
 
   @property
   def count(self) -> int:

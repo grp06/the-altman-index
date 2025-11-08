@@ -1,12 +1,18 @@
 from __future__ import annotations
 
-import os
 import json
+import os
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
 import typer
 from rag_core.logging import configure_logging, get_logger
+from rag_core.schema_versions import (
+  CHUNK_ENRICHMENT_VERSION,
+  DOCUMENT_ENRICHMENT_VERSION,
+  EMBEDDING_SET_VERSION,
+)
 
 from .audit import CorpusAuditor
 from .config import load_config
@@ -88,6 +94,57 @@ def enrich(
   service = DocumentEnrichmentService(loaded)
   frame = service.ensure_enriched(manifest, force=force)
   typer.echo(f"Enriched {len(frame)} transcripts.")
+
+
+@cli_app.command()
+def inspect(config: Optional[Path] = typer.Option(None, "--config", "-c")) -> None:
+  """Inspect enrichment caches and embedding versions."""
+  configure_logging()
+  loaded = load_config(config)
+  loaded.ensure_storage_paths()
+  doc_cache = loaded.storage.artifacts_dir / "enrichment" / "raw"
+  chunk_cache = loaded.storage.artifacts_dir / "enrichment" / "chunks"
+  payload = {
+    "document_cache": _cache_report(doc_cache),
+    "chunk_cache": _cache_report(chunk_cache),
+    "expected_versions": {
+      "document_enrichment_version": DOCUMENT_ENRICHMENT_VERSION,
+      "chunk_enrichment_version": CHUNK_ENRICHMENT_VERSION,
+      "embedding_set_version": EMBEDDING_SET_VERSION,
+    },
+  }
+  typer.echo(json.dumps(payload, indent=2))
+
+
+def _cache_report(path: Path) -> dict:
+  report = {
+    "path": str(path),
+    "exists": path.exists(),
+    "count": 0,
+    "latest_modified": None,
+    "versions": [],
+  }
+  if not path.exists():
+    return report
+  files = sorted(path.glob("*.json"))
+  report["count"] = len(files)
+  versions = set()
+  latest = None
+  for entry in files:
+    try:
+      payload = json.loads(entry.read_text(encoding="utf-8"))
+      version = payload.get("version")
+      if version is not None:
+        versions.add(str(version))
+    except json.JSONDecodeError:
+      versions.add("invalid")
+    mtime = entry.stat().st_mtime
+    if latest is None or mtime > latest:
+      latest = mtime
+  if latest is not None:
+    report["latest_modified"] = datetime.fromtimestamp(latest, tz=timezone.utc).isoformat()
+  report["versions"] = sorted(versions)
+  return report
 
 
 if __name__ == "__main__":

@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from typing import Optional
 
+from datetime import datetime, timezone
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -46,7 +48,7 @@ def startup_event() -> None:
   CHUNK_STORE = ChunkStore(CONFIG.storage.chunk_metadata_path)
   latest_run = CHUNK_STORE.latest_ingestion_run(CONFIG.logging.summaries_path)
   CHUNK_STORE.verify_summary_versions(latest_run)
-  RETRIEVER = Retriever(CONFIG)
+  RETRIEVER = Retriever(CONFIG, CHUNK_STORE)
   LLM = LLMService(CONFIG)
   logger.info(
     "Backend ready with %s chunks and collection %s",
@@ -65,11 +67,13 @@ def require_state() -> tuple[LoadedConfig, ChunkStore, Retriever, LLMService]:
 def health() -> HealthResponse:
   config, store, _, _ = require_state()
   latest_run = store.latest_ingestion_run(config.logging.summaries_path)
+  secondary_timestamp = _latest_secondary_timestamp(config)
   return HealthResponse(
     status="ok",
     chunks=store.count,
     last_ingestion_run=latest_run,
     config_version=config.raw.config_version,
+    secondary_embeddings_updated_at=secondary_timestamp,
   )
 
 
@@ -92,7 +96,13 @@ def search(request: SearchRequest) -> SearchResponse:
   config, _, retriever, _ = require_state()
   top_k = request.top_k or config.retrieval.top_k
   try:
-    result = retriever.search(request.query, top_k)
+    result = retriever.search(
+      query=request.query,
+      question_type=request.question_type,
+      top_k=top_k,
+      intent_filters=request.intent_filters or [],
+      sentiment_filters=request.sentiment_filters or [],
+    )
   except Exception as exc:  # noqa: BLE001
     logger.error("Retrieval failure: %s", exc)
     raise HTTPException(status_code=502, detail="Retrieval failed") from exc
@@ -115,3 +125,21 @@ def synthesize(request: SynthesizeRequest) -> SynthesizeResponse:
     logger.error("Synthesis failure: %s", exc)
     raise HTTPException(status_code=502, detail="Synthesis failed") from exc
   return SynthesizeResponse(**result)
+
+
+def _latest_secondary_timestamp(config: LoadedConfig) -> Optional[str]:
+  paths = [
+    config.storage.chunk_summary_embeddings_path,
+    config.storage.chunk_intents_embeddings_path,
+    config.storage.doc_summary_embeddings_path,
+  ]
+  max_mtime = None
+  for path in paths:
+    if not path.exists():
+      continue
+    mtime = path.stat().st_mtime
+    if max_mtime is None or mtime > max_mtime:
+      max_mtime = mtime
+  if max_mtime is None:
+    return None
+  return datetime.fromtimestamp(max_mtime, tz=timezone.utc).isoformat()

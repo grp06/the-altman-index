@@ -52,6 +52,9 @@ make ingestion-validate
 
 # Rebuild the entire vector store (recreates chunks + Chroma index)
 make ingestion-rebuild
+
+# Inspect enrichment caches + embedding versions
+make ingestion-inspect
 ```
 
 Artifacts after a rebuild:
@@ -79,9 +82,9 @@ make backend-dev
 ```
 
 Helpful endpoints:
-- `GET /healthz` – chunk count, last ingestion run, config version.
+- `GET /healthz` – chunk count, last ingestion run, config version, and the newest secondary embedding timestamp.
 - `POST /classify` – `{query}` → `{type, confidence}` using GPT-4o.
-- `POST /search` – `{query, question_type, top_k?}` → relevant chunks + scores.
+- `POST /search` – `{query, question_type, top_k?, intent_filters?, sentiment_filters?}` → enriched chunks, retrieval metadata, and collection stats.
 - `POST /synthesize` – `{query, question_type, chunk_ids[]}` → grounded answer + reasoning trace.
 
 Question types (`rag_backend.constants.QUESTION_TYPES`): `factual`, `analytical`, `meta`, `exploratory`, `comparative`, `creative`.
@@ -98,8 +101,10 @@ Secondary embeddings for chunk summaries, chunk intents, and document summaries 
 The UI walks users through:
 1. Selecting a question (or choosing from pill-based suggestions).
 2. Seeing live status updates (“classifying”, “retrieving”, “synthesizing”).
-3. Inspecting retrieved chunks (score, title, links).
+3. Inspecting retrieved chunks (score, title, vector source, summaries, intents, sentiment badges, claim snippets).
 4. Reading the synthesized answer with reasoning steps.
+
+The retrieval canvas renders mode pills, intent clusters, sentiment bands, and a comparative doc-summary view once enriched metadata is returned.
 
 ## Docker Compose (Optional)
 ```bash
@@ -115,14 +120,15 @@ The compose file mounts `config/` and `var/` into each container, so local artif
 | --- | --- | --- |
 | `GET /healthz` | – | Confirms backend booted with valid artifacts and shows last ingestion summary. |
 | `POST /classify` | `{"query": "What does Sam Altman think about AGI?"}` | Returns `{ "type": "factual", "confidence": 0.92 }`. |
-| `POST /search` | `{"query": "...", "question_type": "analytical", "top_k": 8}` | Embeds query, queries Chroma, returns chunks `{id, snippet, score, metadata}`. |
+| `POST /search` | `{"query": "...", "question_type": "analytical", "intent_filters": ["roadmap"], "sentiment_filters": ["optimistic"]}` | Returns `{chunks: [...], retrieval_mode, aggregated_count, collections_used[]}`. Each chunk now exposes `chunk_summary`, `chunk_intents`, `chunk_sentiment`, `chunk_claims`, and `vector_source`. |
 | `POST /synthesize` | `{"query": "...", "question_type": "comparative", "chunk_ids": [...]}` | Fetches full chunk text, prompts GPT-4o to produce `{answer, reasoning[]}`. |
 
 ## Troubleshooting
 - **Startup fails with OpenAI errors** – ensure `OPENAI_API_KEY` is set in `.env`; `make backend-dev` automatically loads it.
 - **No chunks detected** – confirm `var/artifacts/metadata/chunks.parquet` exists (rerun `make ingestion-rebuild`).
 - **Chroma path mismatch** – configs (`config/*.yaml`) assume artifacts live under `var/`; update paths if you relocate data.
-- **Health check stale** – check `var/artifacts/logs/ingestion_runs.jsonl` for the latest run and rerun ingestion if needed.
+- **Health check stale** – check `var/artifacts/logs/ingestion_runs.jsonl` for the latest run and rerun ingestion if needed. `/healthz` also exposes `secondary_embeddings_updated_at` so you can detect when secondary Parquet files are stale.
 - **Frontend can’t reach backend** – verify `apps/frontend/.env.local` points to `http://localhost:8018` and CORS is enabled by default.
+- **Caches out of sync** – run `make ingestion-inspect` to print enrichment cache counts, versions, and modified timestamps. Follow the [Enrichment Cache Runbook](docs/enrichment_cache_runbook.md) if versions drift.
 
 For upcoming work, see [`ROADMAP.md`](ROADMAP.md).

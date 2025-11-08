@@ -512,6 +512,216 @@
   border-color: #1d4ed8;
 }
 
+.retrievalPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.retrievalMetaBar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.retrievalModePill {
+  align-self: flex-start;
+  background: #1d4ed8;
+  color: #ffffff;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.retrievalMetaStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.retrievalViews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.retrievalViewButton {
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  background: #eef2ff;
+  color: #1d4ed8;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.retrievalViewButton:hover {
+  background: #dbeafe;
+}
+
+.retrievalViewActive {
+  background: #1d4ed8;
+  color: #ffffff;
+  border-color: #1d4ed8;
+}
+
+.vectorSourceTag {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #6366f1;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.chunkSummary {
+  margin: 0;
+  font-size: 14px;
+  color: #1f2937;
+  font-weight: 500;
+}
+
+.intentChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.intentChip {
+  background: #eef2ff;
+  color: #3730a3;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.claimList {
+  margin: 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.claimItem {
+  line-height: 1.4;
+}
+
+.sentimentBadge {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.clusterGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.clusterCard {
+  border: 1px solid #dbe1ef;
+  border-radius: 16px;
+  padding: 16px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.clusterTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.clusterCount {
+  font-size: 12px;
+  color: #475569;
+}
+
+.clusterItems {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.clusterItem {
+  font-size: 13px;
+  color: #1f2937;
+  border-bottom: 1px dashed #e2e8f0;
+  padding-bottom: 4px;
+}
+
+.clusterItem:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.docsumGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.docsumCard {
+  border: 1px solid #dbe1ef;
+  border-radius: 18px;
+  padding: 18px;
+  background: #fdfdfd;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.docsumHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.docsumTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.docsumMeta {
+  font-size: 12px;
+  color: #475569;
+}
+
+.docsumSnippet {
+  font-size: 14px;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.docsumLink {
+  align-self: flex-start;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1d4ed8;
+  text-decoration: none;
+}
+
+.docsumLink:hover {
+  text-decoration: underline;
+}
+
 .synthesisPreview {
   display: flex;
   flex-direction: column;
@@ -652,6 +862,14 @@
 .chunkScore {
   font-size: 13px;
   color: #4b5563;
+}
+
+.chunkSourceRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .chunkSnippet {

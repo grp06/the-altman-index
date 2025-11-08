@@ -43,3 +43,52 @@ This document is aimed at the LLM/agent that will finish the remaining analytica
 1. Add unit tests covering chunk enrichment JSON parsing and caching (similar to `test_document_enrichment`).
 2. Add integration coverage for the additional embeddings (mock embedding client to avoid API calls).
 3. Ensure `var/artifacts/logs/enrichment_errors.jsonl` also records chunk-level failures with chunk IDs.
+
+## 5. Retrieval Integration
+
+Enriched chunk fields are now first-class citizens in the backend and frontend layers:
+
+- `rag_backend.retriever` merges hits from the primary, summary, intents, and doc-summary collections. Every chunk in the `/search` response carries `chunk_summary`, `chunk_intents`, `chunk_sentiment`, `chunk_claims`, and `vector_source`.
+- Optional `intent_filters` and `sentiment_filters` in the `/search` request let the UI (or any API client) pivot retrieval without post-filtering.
+- `collections_used` and `retrieval_mode` in the response make it obvious which profiles were activated and how many hits each Chroma collection contributed.
+
+Example `/search` response fragment:
+
+```
+{
+  "retrieval_mode": "analytical",
+  "aggregated_count": 9,
+  "collections_used": [
+    {"source": "primary", "name": "sam_altman_interviews", "requested": 5, "returned": 4},
+    {"source": "summary", "name": "sam_altman_interviews_summary", "requested": 5, "returned": 3},
+    {"source": "intents", "name": "sam_altman_interviews_intents", "requested": 4, "returned": 2}
+  ],
+  "chunks": [
+    {
+      "id": "20180729...::chunk::3",
+      "snippet": "Document-level summary or chunk text...",
+      "score": 0.83,
+      "vector_source": "summary",
+      "chunk_summary": "Altman outlines how YC evaluates...",
+      "chunk_intents": ["Roadmap", "Warning"],
+      "chunk_sentiment": "optimistic",
+      "chunk_claims": [
+        "YC looks for durable founder obsession.",
+        "Speed of iteration outruns big-budget planning."
+      ],
+      "metadata": {
+        "title": "...",
+        "doc_id": "...",
+        "youtube_url": "...",
+        "time_span": "2018"
+      }
+    }
+  ]
+}
+```
+
+## 6. Version + Cache Troubleshooting
+
+- `ChunkStore.verify_summary_versions` now requires the ingestion summary to match `rag_core.schema_versions`. If the backend crashes on startup with a version mismatch, run `make ingestion-rebuild` to refresh artifacts.
+- Use `make ingestion-inspect` (Typer command `python -m rag_ingestion.cli inspect`) to print document/chunk cache counts, unique versions, and last modified times before toggling force rebuilds.
+- When schemas change, follow the [Enrichment Cache Runbook](enrichment_cache_runbook.md) to clear `var/artifacts/enrichment/raw` and `var/artifacts/enrichment/chunks`, rerun ingestion, and confirm `/healthz` exposes the new `secondary_embeddings_updated_at` timestamp.

@@ -14,12 +14,26 @@ class StorageSettings(BaseModel):
   index_dir: Path
   chunk_metadata_path: Path
   manifest_path: Path
+  enriched_manifest_path: Path
+  chunk_summary_embeddings_path: Path
+  chunk_intents_embeddings_path: Path
+  doc_summary_embeddings_path: Path
+
+
+class RetrievalProfileSettings(BaseModel):
+  collections: list[str] = Field(..., min_length=1)
+  per_collection_k: dict[str, int] = Field(default_factory=dict)
+  blend: str = Field("score", min_length=1)
 
 
 class RetrievalSettings(BaseModel):
   collection_name: str = Field(..., min_length=1)
   top_k: int = Field(5, gt=0)
   distance_metric: str = Field("cosine", min_length=1)
+  summary_collection_name: Optional[str] = None
+  intents_collection_name: Optional[str] = None
+  doc_summary_collection_name: Optional[str] = None
+  profiles: dict[str, RetrievalProfileSettings] = Field(default_factory=dict)
 
 
 class ModelSettings(BaseModel):
@@ -80,14 +94,31 @@ def _resolve_config(config: AppConfig, base_dir: Path) -> AppConfig:
     index_dir=resolve_path(base_dir, storage.index_dir),
     chunk_metadata_path=resolve_path(base_dir, storage.chunk_metadata_path),
     manifest_path=resolve_path(base_dir, storage.manifest_path),
+    enriched_manifest_path=resolve_path(base_dir, storage.enriched_manifest_path),
+    chunk_summary_embeddings_path=resolve_path(base_dir, storage.chunk_summary_embeddings_path),
+    chunk_intents_embeddings_path=resolve_path(base_dir, storage.chunk_intents_embeddings_path),
+    doc_summary_embeddings_path=resolve_path(base_dir, storage.doc_summary_embeddings_path),
   )
   logging_settings = LoggingSettings(
     summaries_path=resolve_path(base_dir, config.logging.summaries_path)
   )
+  retrieval = config.retrieval
+  summary_collection = retrieval.summary_collection_name or f"{retrieval.collection_name}_summary"
+  intents_collection = retrieval.intents_collection_name or f"{retrieval.collection_name}_intents"
+  docsum_collection = retrieval.doc_summary_collection_name or f"{retrieval.collection_name}_docsum"
+  resolved_retrieval = RetrievalSettings(
+    collection_name=retrieval.collection_name,
+    top_k=retrieval.top_k,
+    distance_metric=retrieval.distance_metric,
+    summary_collection_name=summary_collection,
+    intents_collection_name=intents_collection,
+    doc_summary_collection_name=docsum_collection,
+    profiles=retrieval.profiles,
+  )
   return AppConfig(
     config_version=config.config_version,
     storage=resolved_storage,
-    retrieval=config.retrieval,
+    retrieval=resolved_retrieval,
     models=config.models,
     server=config.server,
     logging=logging_settings,
