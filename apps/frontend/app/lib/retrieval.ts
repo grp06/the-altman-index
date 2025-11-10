@@ -69,15 +69,31 @@ export function formatVectorSourceLabel(value: string): string {
   const lowered = value.toLowerCase();
   switch (lowered) {
     case 'primary':
-      return 'Semantic';
+      return 'Direct quotes';
     case 'summary':
-      return 'Summary';
+      return 'Topic summaries';
     case 'intents':
-      return 'Intent signal';
+      return 'Intent matches';
     case 'docsum':
-      return 'Document summary';
+      return 'Interview context';
     default:
       return value;
+  }
+}
+
+export function getVectorSourceExplanation(value: string): string {
+  const lowered = value.toLowerCase();
+  switch (lowered) {
+    case 'primary':
+      return 'Exact passages from interview transcripts';
+    case 'summary':
+      return 'Chunks selected by their thematic summary';
+    case 'intents':
+      return 'Passages matched by what Sam was trying to communicate';
+    case 'docsum':
+      return 'Relevant interviews identified by their overall topic';
+    default:
+      return '';
   }
 }
 

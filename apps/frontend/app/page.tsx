@@ -6,10 +6,10 @@ import {
   Chunk,
   RetrievalMetadata,
   SearchResult,
-  buildDocsumGroups,
   buildIntentGroups,
   buildSentimentGroups,
   formatVectorSourceLabel,
+  getVectorSourceExplanation,
   mapChunk,
 } from './lib/retrieval';
 
@@ -349,6 +349,7 @@ export default function Home() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [retrievalView, setRetrievalView] = useState<RetrievalView>('list');
   const [expandedChunks, setExpandedChunks] = useState<Record<string, boolean>>({});
+  const [showCollectionDetails, setShowCollectionDetails] = useState(false);
 
   const suggestions = useMemo(() => QUESTION_TYPES[selectedType].suggestions, [selectedType]);
 
@@ -370,6 +371,7 @@ export default function Home() {
     setActiveTab('answer');
     setRetrievalView('list');
     setExpandedChunks({});
+    setShowCollectionDetails(false);
     try {
       const classificationResult = await classifyQuestion(input);
       setClassification(classificationResult);
@@ -466,20 +468,15 @@ export default function Home() {
     const hasIntentData = intentGroups.length > 0;
     const hasSentimentData = sentimentGroups.length > 0;
     const viewOptions: { key: RetrievalView; label: string; enabled: boolean }[] = [
-      { key: 'list', label: 'Ranked list', enabled: true },
-      { key: 'intents', label: 'Intent clusters', enabled: hasIntentData },
-      { key: 'sentiment', label: 'Sentiment bands', enabled: hasSentimentData },
+      { key: 'list' as RetrievalView, label: 'Ranked list', enabled: true },
+      { key: 'intents' as RetrievalView, label: 'Intent clusters', enabled: hasIntentData },
+      { key: 'sentiment' as RetrievalView, label: 'Sentiment bands', enabled: hasSentimentData },
     ].filter((option) => option.enabled);
     const availableKeys = viewOptions.map((option) => option.key);
     const activeView = availableKeys.includes(retrievalView) ? retrievalView : 'list';
     const normalizedMode = retrievalMeta.mode.trim() || 'Mode';
     const modeLabel = `${normalizedMode.charAt(0).toUpperCase()}${normalizedMode.slice(1)} retrieval`;
-    const collectionSummary =
-      retrievalMeta.collections.length === 0
-        ? 'No collections queried'
-        : retrievalMeta.collections
-            .map((collection) => `${formatVectorSourceLabel(collection.source)} ${collection.returned}/${collection.requested}`)
-            .join(' · ');
+    const totalReturned = retrievalMeta.collections.reduce((sum, col) => sum + col.returned, 0);
     const renderListView = () => (
       <div className={styles.retrievalScroller}>
         {chunks.map((chunk) => {
@@ -598,10 +595,36 @@ export default function Home() {
         <div className={styles.retrievalMetaBar}>
           <div className={styles.retrievalModePill}>{modeLabel}</div>
           <div className={styles.retrievalMetaStats}>
-            <span>{`${retrievalMeta.aggregatedCount} vector hits`}</span>
-            <span>{collectionSummary}</span>
+            <span>{`${totalReturned} passages retrieved`}</span>
+            {retrievalMeta.collections.length > 1 && (
+              <button
+                type="button"
+                className={styles.collectionToggle}
+                onClick={() => setShowCollectionDetails(!showCollectionDetails)}
+              >
+                {showCollectionDetails ? 'Hide sources' : `${retrievalMeta.collections.length} search strategies`}
+              </button>
+            )}
           </div>
         </div>
+        {showCollectionDetails && retrievalMeta.collections.length > 0 && (
+          <div className={styles.collectionDetails}>
+            <div className={styles.collectionExplainer}>
+              To improve accuracy, we search multiple ways—matching exact wording, thematic summaries, and communicative intent. Each strategy finds different relevant passages.
+            </div>
+            <div className={styles.collectionList}>
+              {retrievalMeta.collections.map((collection) => (
+                <div key={collection.source} className={styles.collectionItem}>
+                  <div className={styles.collectionLabel}>
+                    <strong>{formatVectorSourceLabel(collection.source)}</strong>
+                    <span className={styles.collectionCount}>{collection.returned} found</span>
+                  </div>
+                  <div className={styles.collectionExplanation}>{getVectorSourceExplanation(collection.source)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {viewOptions.length > 1 && (
           <div className={styles.retrievalViews}>
             {viewOptions.map((option) => (

@@ -269,6 +269,7 @@
   grid-template-columns: minmax(180px, 230px) 1fr;
   gap: 16px;
   align-items: stretch;
+  min-width: 0;
 }
 
 .processMeta {
@@ -330,6 +331,7 @@
 
 .processContent {
   width: 100%;
+  min-width: 0;
 }
 
 .processCard {
@@ -341,6 +343,8 @@
   flex-direction: column;
   gap: 16px;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .cardHeader {
@@ -367,6 +371,8 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .placeholderText {
@@ -439,11 +445,18 @@
 }
 
 .retrievalScroller {
-  display: flex;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: calc(25% - 12px);
   gap: 16px;
   overflow-x: auto;
-  padding-bottom: 4px;
+  padding-bottom: 8px;
   scroll-snap-type: x mandatory;
+  scroll-padding-left: 0;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  max-width: 100%;
 }
 
 .retrievalScroller::-webkit-scrollbar {
@@ -456,7 +469,6 @@
 }
 
 .retrievalCard {
-  flex: 0 0 300px;
   background: #f8fafc;
   border: 1px solid #dbe1ef;
   border-radius: 18px;
@@ -467,6 +479,7 @@
   scroll-snap-align: start;
   max-height: 360px;
   overflow-y: auto;
+  min-width: 280px;
 }
 
 .retrievalCard::-webkit-scrollbar {
@@ -567,12 +580,16 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .retrievalMetaBar {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  width: 100%;
 }
 
 .retrievalModePill {
@@ -597,6 +614,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  width: 100%;
 }
 
 .retrievalViewButton {
@@ -917,6 +935,81 @@
   line-height: 1.6;
 }
 
+.collectionToggle {
+  border: none;
+  background: transparent;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+  transition: color 0.2s ease;
+}
+
+.collectionToggle:hover {
+  color: #1e40af;
+}
+
+.collectionDetails {
+  background: #f8fafc;
+  border: 1px solid #dbe1ef;
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.collectionExplainer {
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.5;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.collectionList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.collectionItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.collectionLabel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.collectionCount {
+  font-size: 12px;
+  color: #6366f1;
+  font-weight: 600;
+  background: #eef2ff;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.collectionExplanation {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
 @media (max-width: 720px) {
   .searchForm {
     flex-direction: column;
@@ -936,6 +1029,22 @@
     align-items: flex-start;
   }
 
+  .retrievalScroller {
+    grid-auto-columns: calc(85% - 12px);
+  }
+
+}
+
+@media (min-width: 721px) and (max-width: 1100px) {
+  .retrievalScroller {
+    grid-auto-columns: calc(50% - 8px);
+  }
+}
+
+@media (min-width: 1101px) and (max-width: 1400px) {
+  .retrievalScroller {
+    grid-auto-columns: calc(33.333% - 11px);
+  }
 }
 
 @media (max-width: 1100px) {
