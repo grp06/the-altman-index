@@ -20,6 +20,17 @@ The app includes Google Analytics tracking for question submissions. Questions a
 
 View your analytics data at [Google Analytics](https://analytics.google.com/) under Events > question_submitted.
 
+## Social Media Sharing
+
+The app is configured for optimal social media sharing with:
+
+- **Open Graph tags** for Facebook, LinkedIn, and other platforms
+- **Twitter Card tags** for Twitter/X sharing
+- **Congress.jpg** as the sharing image for all pages
+- **Custom metadata** for both the main page and about page
+
+When you share links to your site on social media, the congress.jpg image will be displayed with appropriate titles and descriptions.
+
 ## Data Flow
 
 1. **Episode Catalogue**  

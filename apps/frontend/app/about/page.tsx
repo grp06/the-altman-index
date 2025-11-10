@@ -4,6 +4,28 @@ import styles from './about.module.css';
 export const metadata: Metadata = {
   title: 'About | The Altman Index',
   description: 'How I built a searchable knowledge base from 100+ Sam Altman interviews using RAG, embeddings, and enriched metadata.',
+  openGraph: {
+    title: 'About | The Altman Index',
+    description: 'How I built a searchable knowledge base from 100+ Sam Altman interviews using RAG, embeddings, and enriched metadata.',
+    url: '/about',
+    siteName: 'The Altman Index',
+    images: [
+      {
+        url: '/congress.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'About The Altman Index - Building a searchable Sam Altman knowledge base',
+      },
+    ],
+    locale: 'en_US',
+    type: 'article',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'About | The Altman Index',
+    description: 'How I built a searchable knowledge base from 100+ Sam Altman interviews using RAG, embeddings, and enriched metadata.',
+    images: ['/congress.jpg'],
+  },
 };
 
 export default function AboutPage() {
