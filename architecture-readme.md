@@ -1,6 +1,6 @@
 # Architecture README
 
-This document explains how the Query Sam Altman workspace is wired together so future contributors can reason about the system without digging through every file first. It complements `README.md` by focusing on structure, data flow, and the responsibilities of each layer.
+This document explains how The Altman Index workspace is wired together so future contributors can reason about the system without digging through every file first. It complements `README.md` by focusing on structure, data flow, and the responsibilities of each layer.
 
 ## Goals & Guarantees
 - **Transparent RAG** – every retrieval is traceable from ingestion to UI, with chunk-level enrichment explaining *why* a passage showed up.

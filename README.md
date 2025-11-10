@@ -1,4 +1,4 @@
-# Query Sam Altman – Transparent RAG Playground
+# The Altman Index – Transparent RAG Playground
 
 This repo powers an end-to-end Retrieval-Augmented Generation experience for ~100 Sam Altman interviews. Users can ask any question, watch the system classify its intent, inspect the retrieved chunks, and read a grounded synthesis with citations. The goal is to demystify how RAG works while showcasing production-ready ingestion, backend, and frontend code.
 

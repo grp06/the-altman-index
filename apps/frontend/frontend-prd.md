@@ -1,4 +1,4 @@
-# Project: Sam Altman Interview Explorer
+# Project: The Altman Index
 
 ## Overview
 We’re building a **transparent AI search app** that lets users ask any question about a corpus of 100 Sam Altman interviews and **see how the AI thinks step-by-step**.

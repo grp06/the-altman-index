@@ -16,10 +16,10 @@ import {
 type Stage = 'idle' | 'classifying' | 'retrieving' | 'synthesizing' | 'complete' | 'error';
 type CoreStage = 'classifying' | 'retrieving' | 'synthesizing';
 
-type QuestionTypeKey = 'factual' | 'analytical' | 'meta' | 'exploratory' | 'comparative' | 'creative';
+type QuestionTypeKey = 'auto' | 'factual' | 'analytical' | 'meta' | 'exploratory' | 'comparative' | 'creative';
 
 type ClassificationResult = {
-  type: QuestionTypeKey;
+  type: Exclude<QuestionTypeKey, 'auto'>;
   confidence: number;
 };
 
@@ -41,11 +41,20 @@ const QUESTION_TYPES: Record<
     description: string;
     suggestions: string[];
     visualHeadline: string;
+    icon: string;
   }
 > = {
+  auto: {
+    label: 'Auto',
+    description: "We'll classify intent after you ask.",
+    suggestions: [],
+    visualHeadline: 'Auto-classified',
+    icon: '✨',
+  },
   factual: {
     label: 'Factual',
     description: 'Direct answers grounded in specific interview excerpts.',
+    icon: '📌',
     suggestions: [
       'Did Sam Altman ever admit OpenAI broke its original open-source promise?',
       'What\'s the most apocalyptic prediction Altman has made about AGI timelines?',
@@ -59,6 +68,7 @@ const QUESTION_TYPES: Record<
   analytical: {
     label: 'Analytical',
     description: 'Multi-source synthesis to evaluate themes and patterns.',
+    icon: '🧠',
     suggestions: [
       'Does Altman sound more like a techno-optimist or a doomer when discussing AGI risks?',
       'How often does Altman dodge questions about OpenAI\'s Microsoft partnership?',
@@ -72,6 +82,7 @@ const QUESTION_TYPES: Record<
   meta: {
     label: 'Meta',
     description: 'Corpus-wide reflections without direct retrieval.',
+    icon: '🧩',
     suggestions: [
       'Which controversial topics does Altman consistently avoid across all interviews?',
       'Do interviewers ever successfully challenge Altman\'s narratives, or do they softball him?',
@@ -85,6 +96,7 @@ const QUESTION_TYPES: Record<
   exploratory: {
     label: 'Exploratory',
     description: 'Surface adjacent themes and emerging directions.',
+    icon: '🔭',
     suggestions: [
       'Has Altman ever discussed psychedelics, effective altruism, or life extension?',
       'What does Altman say about his firing and dramatic reinstatement at OpenAI?',
@@ -98,6 +110,7 @@ const QUESTION_TYPES: Record<
   comparative: {
     label: 'Comparative',
     description: 'Contrast interviews across time or context.',
+    icon: '⚖️',
     suggestions: [
       'When did Altman stop saying "open" AI should actually be open?',
       'How has Altman\'s tone toward AI regulation shifted as OpenAI gained more market power?',
@@ -111,6 +124,7 @@ const QUESTION_TYPES: Record<
   creative: {
     label: 'Creative',
     description: 'Inventive prompts that remix the corpus into new artifacts.',
+    icon: '✍️',
     suggestions: [
       'Write a scathing investigative exposé using only Altman\'s own contradictory quotes.',
       'Create a debate between 2017 Sam and 2024 Sam about OpenAI\'s direction.',
@@ -166,12 +180,12 @@ function getChunkTitle(chunk: Chunk): string {
 }
 
 function isQuestionTypeKey(value: string): value is QuestionTypeKey {
-  return ['factual', 'analytical', 'meta', 'exploratory', 'comparative', 'creative'].includes(value);
+  return ['auto', 'factual', 'analytical', 'meta', 'exploratory', 'comparative', 'creative'].includes(value);
 }
 
-function normalizeQuestionType(value: string): QuestionTypeKey {
+function normalizeQuestionType(value: string): Exclude<QuestionTypeKey, 'auto'> {
   const lowered = value.toLowerCase();
-  if (isQuestionTypeKey(lowered)) {
+  if (isQuestionTypeKey(lowered) && lowered !== 'auto') {
     return lowered;
   }
   throw new Error(`Unsupported question type: ${value}`);
@@ -235,7 +249,7 @@ async function classifyQuestion(query: string): Promise<ClassificationResult> {
   };
 }
 
-async function retrieveChunks(query: string, type: QuestionTypeKey): Promise<SearchResult> {
+async function retrieveChunks(query: string, type: Exclude<QuestionTypeKey, 'auto'>): Promise<SearchResult> {
   const payload: Record<string, unknown> = {
     query,
     question_type: type,
@@ -287,7 +301,7 @@ async function retrieveChunks(query: string, type: QuestionTypeKey): Promise<Sea
   };
 }
 
-async function synthesizeAnswer(query: string, type: QuestionTypeKey, chunks: Chunk[]): Promise<SynthesisResult> {
+async function synthesizeAnswer(query: string, type: Exclude<QuestionTypeKey, 'auto'>, chunks: Chunk[]): Promise<SynthesisResult> {
   const response = await fetch(`${API_BASE_URL}/synthesize`, {
     method: 'POST',
     headers: {
@@ -321,7 +335,7 @@ async function synthesizeAnswer(query: string, type: QuestionTypeKey, chunks: Ch
 
 export default function Home() {
   const [query, setQuery] = useState('');
-  const [selectedType, setSelectedType] = useState<QuestionTypeKey>('factual');
+  const [selectedType, setSelectedType] = useState<QuestionTypeKey>('auto');
   const [classification, setClassification] = useState<ClassificationResult | null>(null);
   const [chunks, setChunks] = useState<Chunk[]>([]);
   const [retrievalMeta, setRetrievalMeta] = useState<RetrievalMetadata | null>(null);
@@ -333,16 +347,29 @@ export default function Home() {
   const [retrievalView, setRetrievalView] = useState<RetrievalView>('list');
   const [expandedChunks, setExpandedChunks] = useState<Record<string, boolean>>({});
   const [showCollectionDetails, setShowCollectionDetails] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  const [showExamplesSheet, setShowExamplesSheet] = useState(false);
+  const [recentQueries, setRecentQueries] = useState<string[]>([]);
 
-  const suggestions = useMemo(() => QUESTION_TYPES[selectedType].suggestions, [selectedType]);
+  const activeType = selectedType === 'auto' ? (classification?.type ?? 'auto') : selectedType;
+  const suggestions = useMemo(() => {
+    if (selectedType === 'auto') {
+      return activeType !== 'auto' ? QUESTION_TYPES[activeType].suggestions.slice(0, 6) : [];
+    }
+    return QUESTION_TYPES[selectedType].suggestions;
+  }, [selectedType, activeType]);
 
-  const currentTypeForVisual = classification?.type ?? selectedType;
+  const currentTypeForVisual = classification?.type ?? (selectedType === 'auto' ? 'factual' : selectedType);
 
   const handleQuerySubmit = async (input: string) => {
     if (!input.trim()) {
       setErrorMessage('Enter a question to begin.');
       return;
     }
+    setRecentQueries((prev) => {
+      const updated = [input, ...prev.filter((q) => q !== input)].slice(0, 2);
+      return updated;
+    });
     console.info('submitting query', { query: input, selectedType });
     setIsSubmitting(true);
     setStage('classifying');
@@ -386,12 +413,21 @@ export default function Home() {
     await handleQuerySubmit(query);
   };
 
-  const handleSuggestionClick = async (suggestion: string) => {
-    if (isSubmitting) {
-      return;
-    }
+  const handleSuggestionInsert = (suggestion: string) => {
     setQuery(suggestion);
-    await handleQuerySubmit(suggestion);
+    if (selectedType === 'auto' && activeType !== 'auto') {
+      setSelectedType(activeType);
+    }
+    setShowExamplesSheet(false);
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      if (!isSubmitting && query.trim()) {
+        handleQuerySubmit(query);
+      }
+    }
   };
 
   const toggleChunkExpansion = (chunkId: string) => {
@@ -425,12 +461,7 @@ export default function Home() {
       return <div className={styles.placeholderText}>The retrieval canvas activates once a question is running.</div>;
     }
     if (stage === 'classifying') {
-      return (
-        <div className={styles.loadingRow}>
-          <div className={styles.spinner} />
-          <span>Waiting for classification before retrieval begins.</span>
-        </div>
-      );
+      return <div className={styles.placeholderText}>Waiting for classification to complete...</div>;
     }
     if (stage === 'retrieving' && !retrievalReady) {
       return (
@@ -676,25 +707,60 @@ export default function Home() {
     }
 
     if (stepStage === 'retrieving') {
+      const retrievalHeadline = (() => {
+        if (stage === 'error' && !retrievalReady) {
+          return 'Error';
+        }
+        if (stage === 'retrieving') {
+          return 'Running';
+        }
+        if (retrievalReady && retrievalMeta) {
+          return QUESTION_TYPES[currentTypeForVisual].visualHeadline;
+        }
+        if (stage === 'classifying') {
+          return 'Pending';
+        }
+        return 'Pending';
+      })();
+
       return (
         <div className={styles.processCard}>
           <div className={styles.cardHeader}>
             <div className={styles.cardTitle}>Retrieval</div>
-            <div className={styles.cardHeadline}>{QUESTION_TYPES[currentTypeForVisual].visualHeadline}</div>
+            <div className={styles.cardHeadline}>{retrievalHeadline}</div>
           </div>
           <div className={styles.cardBody}>{renderRetrievalVisual()}</div>
         </div>
       );
     }
 
+    const synthesisHeadline = (() => {
+      if (stage === 'error' && !synthesisReady) {
+        return 'Error';
+      }
+      if (stage === 'synthesizing') {
+        return 'Running';
+      }
+      if (synthesisReady && synthesis) {
+        return 'Answer complete';
+      }
+      if (stage === 'classifying' || stage === 'retrieving') {
+        return 'Pending';
+      }
+      return 'Pending';
+    })();
+
     return (
       <div className={styles.processCard}>
         <div className={styles.cardHeader}>
           <div className={styles.cardTitle}>Synthesis</div>
-          <div className={styles.cardHeadline}>{synthesisReady && synthesis ? 'Answer complete' : 'Awaiting output'}</div>
+          <div className={styles.cardHeadline}>{synthesisHeadline}</div>
         </div>
         <div className={styles.cardBody}>
           {stage === 'idle' && <div className={styles.placeholderText}>The synthesis card unlocks after retrieval.</div>}
+          {(stage === 'classifying' || stage === 'retrieving') && (
+            <div className={styles.placeholderText}>Waiting for previous steps to complete...</div>
+          )}
           {stage === 'synthesizing' && (
             <div className={styles.loadingRow}>
               <div className={styles.spinner} />
@@ -787,58 +853,180 @@ export default function Home() {
     );
   };
 
+  const isIdle = stage === 'idle';
+  const allTypeKeys = (Object.keys(QUESTION_TYPES) as QuestionTypeKey[]).filter((key) => key !== 'auto' || isIdle);
+  const displaySuggestions = isInputFocused && isIdle ? suggestions.slice(0, 3) : suggestions.slice(0, 6);
+
   return (
     <main className={styles.main}>
       <section className={styles.heroSection}>
         <div className={styles.heroContent}>
-          <p className={styles.kicker}>Sam Altman Interview Explorer</p>
-          <h1 className={styles.title}>Transparent answers from 100 Sam Altman interviews.</h1>
-          <p className={styles.subtitle}>Classify intent, pull the right passages, and inspect the sourced synthesis in one view.</p>
+          <h1 className={styles.title}>Search 100+ Sam Altman interviews.</h1>
+          <p className={styles.subtitle}>Ask any question. See exactly how the AI retrieves and reasons about his ideas.</p>
         </div>
       </section>
       <section className={styles.searchSection}>
         <div className={styles.searchCard}>
           <form className={styles.searchForm} onSubmit={handleSubmit}>
-            <input
-              className={styles.searchInput}
-              placeholder="Type any question or tap a starter from the tabs below..."
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              disabled={isSubmitting}
-            />
-            <button className={styles.submitButton} type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Running' : 'Run analysis'}
-            </button>
+            <div className={styles.inputWrapper}>
+              <span className={styles.inputIcon}>🔎</span>
+              <input
+                className={styles.searchInput}
+                placeholder="Ask a question…"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onFocus={() => setIsInputFocused(true)}
+                onBlur={() => setTimeout(() => setIsInputFocused(false), 200)}
+                onKeyDown={handleKeyDown}
+                disabled={isSubmitting}
+              />
+              <button className={styles.submitButtonInline} type="submit" disabled={isSubmitting || !query.trim()}>
+                {isSubmitting ? 'Running' : 'Analyze'}
+              </button>
+            </div>
+            {!isInputFocused && (
+              <div className={styles.inputHelper}>
+                Enter ↵ to run • Shift+Enter for newline
+              </div>
+            )}
           </form>
           {errorMessage && <div className={styles.errorMessage}>{errorMessage}</div>}
           <div className={styles.pillRow}>
-            {(Object.keys(QUESTION_TYPES) as QuestionTypeKey[]).map((typeKey) => (
-              <button
-                key={typeKey}
-                type="button"
-                className={`${styles.pillButton} ${selectedType === typeKey ? styles.pillActive : ''}`}
-                onClick={() => setSelectedType(typeKey)}
-                disabled={isSubmitting}
-              >
-                {QUESTION_TYPES[typeKey].label}
-              </button>
+            {allTypeKeys.map((typeKey) => (
+              <div key={typeKey} className={styles.pillWrapper}>
+                <button
+                  type="button"
+                  className={`${styles.pillButton} ${selectedType === typeKey ? styles.pillActive : ''}`}
+                  onClick={() => setSelectedType(typeKey)}
+                  disabled={isSubmitting}
+                  title={QUESTION_TYPES[typeKey].description}
+                >
+                  {QUESTION_TYPES[typeKey].icon && <span className={styles.pillIcon}>{QUESTION_TYPES[typeKey].icon}</span>}
+                  {QUESTION_TYPES[typeKey].label}
+                </button>
+                {typeKey === 'auto' && (
+                  <button
+                    type="button"
+                    className={styles.infoButton}
+                    title={QUESTION_TYPES[typeKey].description}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
+                    aria-label="Info"
+                  >
+                    ⓘ
+                  </button>
+                )}
+              </div>
             ))}
           </div>
-          <div className={styles.pillDescription}>{QUESTION_TYPES[selectedType].description}</div>
-          <div className={styles.pillHint}>Presets only change the starter prompts below. Type anything; classification adapts after you submit.</div>
-          <div className={styles.suggestions}>
-            <div className={styles.suggestionsHeader}>Starter questions</div>
-            <div className={styles.suggestionsSubhead}>
-              {QUESTION_TYPES[selectedType].label} preset selected. Tap any suggestion to auto-fill, or ignore them and keep typing your own question.
+          {!isInputFocused && (
+            <>
+              {displaySuggestions.length > 0 && (
+                <div className={styles.examplesSection}>
+                  <div className={styles.examplesHeader}>
+                    <span className={styles.examplesLabel}>Try these:</span>
+                    {suggestions.length > 6 && (
+                      <button
+                        type="button"
+                        className={styles.showMoreButton}
+                        onClick={() => setShowExamplesSheet(true)}
+                      >
+                        Show more examples
+                      </button>
+                    )}
+                  </div>
+                  <div className={styles.examplesChips}>
+                    {displaySuggestions.map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        className={styles.exampleChip}
+                        onClick={() => handleSuggestionInsert(suggestion)}
+                        disabled={isSubmitting}
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {isIdle && (
+                <div className={styles.emptyHint}>
+                  We&apos;ll show sources & the pipeline after you run.
+                </div>
+              )}
+            </>
+          )}
+          {isInputFocused && isIdle && (
+            <div className={styles.focusSuggestions}>
+              {displaySuggestions.length > 0 && (
+                <div className={styles.focusExamples}>
+                  {displaySuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      className={styles.exampleChip}
+                      onClick={() => handleSuggestionInsert(suggestion)}
+                      disabled={isSubmitting}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {recentQueries.length > 0 && (
+                <div className={styles.recentsSection}>
+                  <span className={styles.recentsLabel}>Recents:</span>
+                  {recentQueries.map((recent) => (
+                    <button
+                      key={recent}
+                      type="button"
+                      className={styles.exampleChip}
+                      onClick={() => handleSuggestionInsert(recent)}
+                      disabled={isSubmitting}
+                    >
+                      {recent}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            <div className={styles.suggestionList}>
-              {suggestions.map((suggestion) => (
+          )}
+        </div>
+      </section>
+      {showExamplesSheet && (
+        <div className={styles.sheetOverlay} onClick={() => setShowExamplesSheet(false)}>
+          <div className={styles.sheetContent} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.sheetHeader}>
+              <h2 className={styles.sheetTitle}>Examples & Templates</h2>
+              <button
+                type="button"
+                className={styles.sheetClose}
+                onClick={() => setShowExamplesSheet(false)}
+              >
+                ×
+              </button>
+            </div>
+            <div className={styles.sheetTabs}>
+              {(Object.keys(QUESTION_TYPES) as QuestionTypeKey[]).filter((key) => key !== 'auto').map((typeKey) => (
+                <button
+                  key={typeKey}
+                  type="button"
+                  className={`${styles.sheetTab} ${selectedType === typeKey ? styles.sheetTabActive : ''}`}
+                  onClick={() => setSelectedType(typeKey)}
+                >
+                  {QUESTION_TYPES[typeKey].icon} {QUESTION_TYPES[typeKey].label}
+                </button>
+              ))}
+            </div>
+            <div className={styles.sheetExamples}>
+              {QUESTION_TYPES[selectedType === 'auto' ? 'factual' : selectedType].suggestions.map((suggestion) => (
                 <button
                   key={suggestion}
                   type="button"
-                  className={styles.suggestionButton}
-                  onClick={() => handleSuggestionClick(suggestion)}
-                  disabled={isSubmitting}
+                  className={styles.sheetExampleChip}
+                  onClick={() => handleSuggestionInsert(suggestion)}
                 >
                   {suggestion}
                 </button>
@@ -846,7 +1034,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </section>
+      )}
       <section className={styles.processSection}>
         <div className={styles.processHeader}>
           <div className={styles.processTitle}>Trace the retrieval workflow</div>

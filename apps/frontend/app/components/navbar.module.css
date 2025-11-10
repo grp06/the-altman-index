@@ -1,0 +1,57 @@
+.navWrapper {
+  background: #f6f7fb;
+  padding: 24px 64px 0;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+}
+
+.brand {
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+  text-decoration: none;
+}
+
+.links {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+}
+
+.link {
+  font-size: 15px;
+  font-weight: 500;
+  color: #1d4ed8;
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: 999px;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.link:hover {
+  background: rgba(29, 78, 216, 0.08);
+  color: #1e40af;
+}
+
+@media (max-width: 900px) {
+  .navWrapper {
+    padding: 16px 24px 0;
+  }
+
+  .nav {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .links {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

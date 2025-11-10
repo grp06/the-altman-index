@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
+import { NavBar } from "./components/NavBar";
 
 export const metadata: Metadata = {
-  title: "Sam Altman Interview Explorer",
-  description: "Transparent RAG walkthrough for 100 Sam Altman interviews.",
+  title: "The Altman Index",
+  description: "A searchable knowledge base of 100+ Sam Altman interviews with transparent RAG retrieval.",
 };
 
 export default function RootLayout({
@@ -13,6 +14,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body style={{ margin: 0 }}>
+        <NavBar />
         {children}
       </body>
     </html>

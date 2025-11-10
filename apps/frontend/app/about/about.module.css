@@ -1,0 +1,85 @@
+.main {
+  min-height: 100vh;
+  background: #f6f7fb;
+  color: #0f172a;
+  padding: 64px 32px;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.article {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.header {
+  margin-bottom: 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.kicker {
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 13px;
+  color: #445063;
+  margin: 0;
+}
+
+.title {
+  font-size: 44px;
+  line-height: 1.1;
+  font-weight: 700;
+  margin: 0;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 16px;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.content section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.content h2 {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+  color: #0f172a;
+}
+
+.content p {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.7;
+  color: #1f2937;
+}
+
+@media (max-width: 900px) {
+  .main {
+    padding: 32px 24px;
+  }
+
+  .title {
+    font-size: 34px;
+  }
+
+  .content {
+    gap: 24px;
+  }
+
+  .content h2 {
+    font-size: 20px;
+  }
+}
