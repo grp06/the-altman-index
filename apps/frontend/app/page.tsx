@@ -30,7 +30,7 @@ type SynthesisResult = {
 
 type StepStatus = 'pending' | 'active' | 'done' | 'error';
 
-type RetrievalView = 'list' | 'intents' | 'sentiment' | 'docsum';
+type RetrievalView = 'list' | 'intents' | 'sentiment';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8018';
 
@@ -348,6 +348,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<'answer' | 'chunks' | 'trace'>('answer');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [retrievalView, setRetrievalView] = useState<RetrievalView>('list');
+  const [expandedChunks, setExpandedChunks] = useState<Record<string, boolean>>({});
 
   const suggestions = useMemo(() => QUESTION_TYPES[selectedType].suggestions, [selectedType]);
 
@@ -368,6 +369,7 @@ export default function Home() {
     setSynthesis(null);
     setActiveTab('answer');
     setRetrievalView('list');
+    setExpandedChunks({});
     try {
       const classificationResult = await classifyQuestion(input);
       setClassification(classificationResult);
@@ -405,6 +407,13 @@ export default function Home() {
     }
     setQuery(suggestion);
     await handleQuerySubmit(suggestion);
+  };
+
+  const toggleChunkExpansion = (chunkId: string) => {
+    setExpandedChunks((previous) => ({
+      ...previous,
+      [chunkId]: !previous[chunkId],
+    }));
   };
 
   const renderStepStatus = (stepStage: Stage): StepStatus => {
@@ -454,15 +463,12 @@ export default function Home() {
     }
     const intentGroups = buildIntentGroups(chunks);
     const sentimentGroups = buildSentimentGroups(chunks);
-    const docsumGroups = buildDocsumGroups(chunks);
     const hasIntentData = intentGroups.length > 0;
     const hasSentimentData = sentimentGroups.length > 0;
-    const hasDocsumView = docsumGroups.length > 0;
     const viewOptions: { key: RetrievalView; label: string; enabled: boolean }[] = [
       { key: 'list', label: 'Ranked list', enabled: true },
       { key: 'intents', label: 'Intent clusters', enabled: hasIntentData },
       { key: 'sentiment', label: 'Sentiment bands', enabled: hasSentimentData },
-      { key: 'docsum', label: 'Comparative view', enabled: hasDocsumView },
     ].filter((option) => option.enabled);
     const availableKeys = viewOptions.map((option) => option.key);
     const activeView = availableKeys.includes(retrievalView) ? retrievalView : 'list';
@@ -479,6 +485,12 @@ export default function Home() {
         {chunks.map((chunk) => {
           const formattedDate = formatUploadDate(chunk.metadata.upload_date);
           const youtubeUrl = chunk.metadata.youtube_url?.trim();
+          const isExpanded = !!expandedChunks[chunk.id];
+          const hasDetails = chunk.chunkIntents.length > 0 || chunk.chunkClaims.length > 0;
+          const showToggle =
+            hasDetails ||
+            (chunk.chunkSummary ? chunk.chunkSummary.length > 160 : false) ||
+            (chunk.snippet ? chunk.snippet.length > 220 : false);
           return (
             <article key={chunk.id} className={styles.retrievalCard}>
               <div className={styles.retrievalHeader}>
@@ -489,37 +501,48 @@ export default function Home() {
                 <div className={styles.retrievalScore}>{(chunk.score * 100).toFixed(1)}%</div>
               </div>
               <div className={styles.retrievalMeta}>
-                {formattedDate && (
-                  <span className={styles.retrievalMetaBadge}>
-                    {formattedDate}
-                  </span>
-                )}
+                {formattedDate && <span className={styles.retrievalMetaBadge}>{formattedDate}</span>}
                 {chunk.chunkSentiment && <span className={`${styles.retrievalMetaBadge} ${styles.sentimentBadge}`}>{chunk.chunkSentiment}</span>}
               </div>
-              {chunk.chunkSummary && <div className={styles.chunkSummary}>{chunk.chunkSummary}</div>}
-              <div className={styles.retrievalSnippet}>{chunk.snippet}</div>
-              {chunk.chunkIntents.length > 0 && (
-                <div className={styles.intentChips}>
-                  {chunk.chunkIntents.slice(0, 4).map((intent) => (
-                    <span key={`${chunk.id}-${intent}`} className={styles.intentChip}>
-                      {intent}
-                    </span>
-                  ))}
+              {chunk.chunkSummary && (
+                <div className={`${styles.chunkSummary} ${isExpanded ? styles.expandableOpen : styles.collapsibleTwo}`}>{chunk.chunkSummary}</div>
+              )}
+              <div className={`${styles.retrievalSnippet} ${isExpanded ? styles.expandableOpen : styles.collapsibleFour}`}>{chunk.snippet}</div>
+              {isExpanded && hasDetails && (
+                <div className={styles.retrievalDetails}>
+                  {chunk.chunkIntents.length > 0 && (
+                    <div className={styles.intentChips}>
+                      {chunk.chunkIntents.slice(0, 6).map((intent) => (
+                        <span key={`${chunk.id}-${intent}`} className={styles.intentChip}>
+                          {intent}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {chunk.chunkClaims.length > 0 && (
+                    <ul className={styles.claimList}>
+                      {chunk.chunkClaims.slice(0, 3).map((claim) => (
+                        <li key={`${chunk.id}-claim-${claim}`} className={styles.claimItem}>
+                          {claim}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               )}
-              {chunk.chunkClaims.length > 0 && (
-                <ul className={styles.claimList}>
-                  {chunk.chunkClaims.slice(0, 2).map((claim) => (
-                    <li key={`${chunk.id}-claim-${claim}`} className={styles.claimItem}>
-                      {claim}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {youtubeUrl && (
-                <a href={youtubeUrl} target="_blank" rel="noreferrer" className={styles.retrievalLink}>
-                  Open interview
-                </a>
+              {(youtubeUrl || showToggle) && (
+                <div className={styles.retrievalFooter}>
+                  {youtubeUrl && (
+                    <a href={youtubeUrl} target="_blank" rel="noreferrer" className={styles.retrievalLink}>
+                      Open interview
+                    </a>
+                  )}
+                  {showToggle && (
+                    <button type="button" className={styles.expandToggle} onClick={() => toggleChunkExpansion(chunk.id)}>
+                      {isExpanded ? 'Hide details' : 'Expand details'}
+                    </button>
+                  )}
+                </div>
               )}
             </article>
           );
@@ -570,38 +593,6 @@ export default function Home() {
         </div>
       );
     };
-    const renderDocsumView = () => {
-      if (docsumGroups.length === 0) {
-        return <div className={styles.placeholderText}>Comparative view activates when doc summaries surface.</div>;
-      }
-      return (
-        <div className={styles.docsumGrid}>
-          {docsumGroups.map((group) => {
-            const title = getChunkTitle(group.chunk);
-            const uploadDate = formatUploadDate(group.chunk.metadata.upload_date);
-            const timeSpan = group.chunk.metadata.time_span?.trim() ?? null;
-            const url = group.chunk.metadata.youtube_url?.trim() ?? null;
-            return (
-              <article key={group.docId} className={styles.docsumCard}>
-                <div className={styles.docsumHeader}>
-                  <div>
-                    <div className={styles.docsumTitle}>{title}</div>
-                    {timeSpan && <div className={styles.docsumMeta}>{timeSpan}</div>}
-                  </div>
-                  {uploadDate && <span className={styles.docsumMeta}>{uploadDate}</span>}
-                </div>
-                <div className={styles.docsumSnippet}>{group.chunk.snippet}</div>
-                {url && (
-                  <a href={url} target="_blank" rel="noreferrer" className={styles.docsumLink}>
-                    Open interview
-                  </a>
-                )}
-              </article>
-            );
-          })}
-        </div>
-      );
-    };
     return (
       <div className={styles.retrievalPanel}>
         <div className={styles.retrievalMetaBar}>
@@ -628,7 +619,6 @@ export default function Home() {
         {activeView === 'list' && renderListView()}
         {activeView === 'intents' && renderIntentClusters()}
         {activeView === 'sentiment' && renderSentimentClusters()}
-        {activeView === 'docsum' && renderDocsumView()}
       </div>
     );
   };
