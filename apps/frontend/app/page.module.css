@@ -258,84 +258,89 @@
   font-size: 15px;
 }
 
-.stepper {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 16px;
+.processStream {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
-.step {
-  background: #ffffff;
+.processRow {
+  display: grid;
+  grid-template-columns: minmax(180px, 230px) 1fr;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.processMeta {
   border: 1px solid #d9dde7;
   border-radius: 18px;
-  padding: 18px;
+  background: #ffffff;
+  padding: 16px;
   display: flex;
-  gap: 16px;
   align-items: center;
-  transition: border 0.2s ease, background 0.2s ease, color 0.2s ease;
+  gap: 16px;
+  transition: border 0.2s ease, background 0.2s ease;
 }
 
-.stepIndicator {
-  width: 44px;
-  height: 44px;
+.processMetaIndicator {
+  width: 38px;
+  height: 38px;
+  aspect-ratio: 1 / 1;
   border-radius: 50%;
   background: #e2e8f0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-weight: 600;
-  font-size: 16px;
   color: #1d4ed8;
-}
-
-.stepTitle {
   font-weight: 600;
   font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 1;
 }
 
-.stepSubtitle {
+.processMetaTitle {
+  font-weight: 600;
+  font-size: 16px;
+  color: #0f172a;
+}
+
+.processMetaSubtitle {
   font-size: 13px;
   color: #64748b;
 }
 
-.stepDone {
+.processMetaDone {
   border-color: #b4c6fc;
 }
 
-.stepDone .stepIndicator {
+.processMetaDone .processMetaIndicator {
   background: #1d4ed8;
   color: #ffffff;
 }
 
-.stepDone .stepTitle {
-  color: #1d4ed8;
-}
-
-.stepActive {
+.processMetaActive {
   border-color: #1d4ed8;
   background: #eef2ff;
 }
 
-.stepError {
+.processMetaError {
   border-color: #f87171;
   background: #fee2e2;
 }
 
-.processGrid {
-  display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(360px, 2.5fr) minmax(220px, 1fr);
-  gap: 24px;
+.processContent {
+  width: 100%;
 }
 
 .processCard {
   background: #ffffff;
   border: 1px solid #d9dde7;
   border-radius: 20px;
-  padding: 20px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  min-height: 320px;
+  min-height: 0;
 }
 
 .cardHeader {
@@ -937,7 +942,7 @@
 }
 
 @media (max-width: 1100px) {
-  .processGrid {
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  .processRow {
+    grid-template-columns: 1fr;
   }
 }

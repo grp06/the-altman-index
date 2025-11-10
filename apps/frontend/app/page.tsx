@@ -14,6 +14,7 @@ import {
 } from './lib/retrieval';
 
 type Stage = 'idle' | 'classifying' | 'retrieving' | 'synthesizing' | 'complete' | 'error';
+type CoreStage = 'classifying' | 'retrieving' | 'synthesizing';
 
 type QuestionTypeKey = 'factual' | 'analytical' | 'meta' | 'exploratory' | 'comparative' | 'creative';
 
@@ -122,7 +123,7 @@ const QUESTION_TYPES: Record<
   },
 };
 
-const PROCESS_STEPS: { stage: Stage; title: string; subtitle: string }[] = [
+const PROCESS_STEPS: { stage: CoreStage; title: string; subtitle: string }[] = [
   {
     stage: 'classifying',
     title: 'Classify intent',
@@ -632,6 +633,94 @@ export default function Home() {
     );
   };
 
+  const renderProcessContent = (stepStage: CoreStage) => {
+    if (stepStage === 'classifying') {
+      const classificationHeadline = (() => {
+        if (stage === 'error' && !classificationReady) {
+          return 'Error';
+        }
+        if (stage === 'classifying') {
+          return 'Running';
+        }
+        if (classificationReady && classification) {
+          return 'Ready';
+        }
+        return 'Pending';
+      })();
+
+      return (
+        <div className={styles.processCard}>
+          <div className={styles.cardHeader}>
+            <div className={styles.cardTitle}>Classification</div>
+            <div className={styles.cardHeadline}>{classificationHeadline}</div>
+          </div>
+          <div className={styles.cardBody}>
+            {stage === 'idle' && <div className={styles.placeholderText}>Submit a question to trigger classification.</div>}
+            {stage === 'classifying' && (
+              <div className={styles.loadingRow}>
+                <div className={styles.spinner} />
+                <span>Classifying question intent.</span>
+              </div>
+            )}
+            {classificationReady && classification && (
+              <div className={styles.classificationSummary}>
+                <div className={styles.classificationType}>{QUESTION_TYPES[classification.type].label}</div>
+                <div className={styles.confidenceMeter}>
+                  <div className={styles.confidenceTrack}>
+                    <div className={styles.confidenceFill} style={{ width: `${Math.round(classification.confidence * 100)}%` }} />
+                  </div>
+                </div>
+                <p className={styles.classificationDescription}>{QUESTION_TYPES[classification.type].description}</p>
+              </div>
+            )}
+            {stage === 'error' && !classificationReady && <div className={styles.placeholderText}>Classification failed.</div>}
+          </div>
+        </div>
+      );
+    }
+
+    if (stepStage === 'retrieving') {
+      return (
+        <div className={styles.processCard}>
+          <div className={styles.cardHeader}>
+            <div className={styles.cardTitle}>Retrieval</div>
+            <div className={styles.cardHeadline}>{QUESTION_TYPES[currentTypeForVisual].visualHeadline}</div>
+          </div>
+          <div className={styles.cardBody}>{renderRetrievalVisual()}</div>
+        </div>
+      );
+    }
+
+    return (
+      <div className={styles.processCard}>
+        <div className={styles.cardHeader}>
+          <div className={styles.cardTitle}>Synthesis</div>
+          <div className={styles.cardHeadline}>{synthesisReady && synthesis ? 'Answer complete' : 'Awaiting output'}</div>
+        </div>
+        <div className={styles.cardBody}>
+          {stage === 'idle' && <div className={styles.placeholderText}>The synthesis card unlocks after retrieval.</div>}
+          {stage === 'synthesizing' && (
+            <div className={styles.loadingRow}>
+              <div className={styles.spinner} />
+              <span>Synthesizing final answer with source trace.</span>
+            </div>
+          )}
+          {synthesisReady && synthesis && (
+            <div className={styles.synthesisPreview}>
+              <div className={styles.answerPreview}>{synthesis.answer}</div>
+              <ul className={styles.reasoningPreview}>
+                {synthesis.reasoning.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {stage === 'error' && !synthesisReady && <div className={styles.placeholderText}>Synthesis failed.</div>}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <main className={styles.main}>
       <section className={styles.heroSection}>
@@ -697,89 +786,28 @@ export default function Home() {
           <div className={styles.processTitle}>Trace the retrieval workflow</div>
           <div className={styles.processCaption}>We surface every backend step so you can verify how the answer was assembled.</div>
         </div>
-        <div className={styles.stepper}>
+        <div className={styles.processStream}>
           {PROCESS_STEPS.map((step, index) => {
             const status = renderStepStatus(step.stage);
             return (
-              <div
-                key={step.stage}
-                className={`${styles.step} ${status === 'done' ? styles.stepDone : ''} ${status === 'active' ? styles.stepActive : ''} ${
-                  status === 'error' ? styles.stepError : ''
-                }`}
-              >
-                <div className={styles.stepIndicator}>
-                  <span>{index + 1}</span>
+              <div key={step.stage} className={styles.processRow}>
+                <div
+                  className={`${styles.processMeta} ${status === 'done' ? styles.processMetaDone : ''} ${
+                    status === 'active' ? styles.processMetaActive : ''
+                  } ${status === 'error' ? styles.processMetaError : ''}`}
+                >
+                  <div className={styles.processMetaIndicator}>
+                    <span>{index + 1}</span>
+                  </div>
+                  <div>
+                    <div className={styles.processMetaTitle}>{step.title}</div>
+                    <div className={styles.processMetaSubtitle}>{step.subtitle}</div>
+                  </div>
                 </div>
-                <div>
-                  <div className={styles.stepTitle}>{step.title}</div>
-                  <div className={styles.stepSubtitle}>{step.subtitle}</div>
-                </div>
+                <div className={styles.processContent}>{renderProcessContent(step.stage)}</div>
               </div>
             );
           })}
-        </div>
-        <div className={styles.processGrid}>
-          <div className={styles.processCard}>
-            <div className={styles.cardHeader}>
-              <div className={styles.cardTitle}>Classification</div>
-              <div className={styles.cardHeadline}>{classification ? QUESTION_TYPES[classification.type].label : 'Pending'}</div>
-            </div>
-            <div className={styles.cardBody}>
-              {stage === 'idle' && <div className={styles.placeholderText}>Submit a question to trigger classification.</div>}
-              {stage === 'classifying' && (
-                <div className={styles.loadingRow}>
-                  <div className={styles.spinner} />
-                  <span>Classifying question intent.</span>
-                </div>
-              )}
-              {classificationReady && classification && (
-                <div className={styles.classificationSummary}>
-                  <div className={styles.classificationType}>{QUESTION_TYPES[classification.type].label}</div>
-                  <div className={styles.confidenceMeter}>
-                    <div className={styles.confidenceTrack}>
-                      <div className={styles.confidenceFill} style={{ width: `${Math.round(classification.confidence * 100)}%` }} />
-                    </div>
-                    <span>{Math.round(classification.confidence * 100)}% confidence</span>
-                  </div>
-                  <p className={styles.classificationDescription}>{QUESTION_TYPES[classification.type].description}</p>
-                </div>
-              )}
-              {stage === 'error' && !classificationReady && <div className={styles.placeholderText}>Classification failed.</div>}
-            </div>
-          </div>
-          <div className={styles.processCard}>
-            <div className={styles.cardHeader}>
-              <div className={styles.cardTitle}>Retrieval</div>
-              <div className={styles.cardHeadline}>{QUESTION_TYPES[currentTypeForVisual].visualHeadline}</div>
-            </div>
-            <div className={styles.cardBody}>{renderRetrievalVisual()}</div>
-          </div>
-          <div className={styles.processCard}>
-            <div className={styles.cardHeader}>
-              <div className={styles.cardTitle}>Synthesis</div>
-              <div className={styles.cardHeadline}>{synthesisReady && synthesis ? 'Answer complete' : 'Awaiting output'}</div>
-            </div>
-            <div className={styles.cardBody}>
-              {stage === 'idle' && <div className={styles.placeholderText}>The synthesis card unlocks after retrieval.</div>}
-              {stage === 'synthesizing' && (
-                <div className={styles.loadingRow}>
-                  <div className={styles.spinner} />
-                  <span>Synthesizing final answer with source trace.</span>
-                </div>
-              )}
-              {synthesisReady && synthesis && (
-                <div className={styles.synthesisPreview}>
-                  <div className={styles.answerPreview}>{synthesis.answer}</div>
-                  <ul className={styles.reasoningPreview}>
-                    {synthesis.reasoning.map((step) => (
-                      <li key={step}>{step}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {stage === 'error' && !synthesisReady && <div className={styles.placeholderText}>Synthesis failed.</div>}
-            </div>
-          </div>
         </div>
         {stage === 'error' && errorMessage && <div className={styles.errorPanel}>{errorMessage}</div>}
       </section>
