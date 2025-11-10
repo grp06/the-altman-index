@@ -765,6 +765,12 @@
   gap: 16px;
 }
 
+.synthesisContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .answerPreview {
   font-size: 15px;
   line-height: 1.6;

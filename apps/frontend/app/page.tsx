@@ -345,7 +345,7 @@ export default function Home() {
   const [synthesis, setSynthesis] = useState<SynthesisResult | null>(null);
   const [stage, setStage] = useState<Stage>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'answer' | 'chunks' | 'trace'>('answer');
+  const [synthesisTab, setSynthesisTab] = useState<'answer' | 'chunks' | 'trace'>('answer');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [retrievalView, setRetrievalView] = useState<RetrievalView>('list');
   const [expandedChunks, setExpandedChunks] = useState<Record<string, boolean>>({});
@@ -368,7 +368,7 @@ export default function Home() {
     setChunks([]);
     setRetrievalMeta(null);
     setSynthesis(null);
-    setActiveTab('answer');
+    setSynthesisTab('answer');
     setRetrievalView('list');
     setExpandedChunks({});
     setShowCollectionDetails(false);
@@ -719,13 +719,82 @@ export default function Home() {
             </div>
           )}
           {synthesisReady && synthesis && (
-            <div className={styles.synthesisPreview}>
-              <div className={styles.answerPreview}>{synthesis.answer}</div>
-              <ul className={styles.reasoningPreview}>
-                {synthesis.reasoning.map((step) => (
-                  <li key={step}>{step}</li>
-                ))}
-              </ul>
+            <div className={styles.synthesisContent}>
+              <div className={styles.tabList}>
+                <button
+                  type="button"
+                  className={`${styles.tabButton} ${synthesisTab === 'answer' ? styles.tabActive : ''}`}
+                  onClick={() => setSynthesisTab('answer')}
+                >
+                  Answer
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.tabButton} ${synthesisTab === 'chunks' ? styles.tabActive : ''}`}
+                  onClick={() => setSynthesisTab('chunks')}
+                >
+                  Retrieved chunks
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.tabButton} ${synthesisTab === 'trace' ? styles.tabActive : ''}`}
+                  onClick={() => setSynthesisTab('trace')}
+                >
+                  Source trace
+                </button>
+              </div>
+              <div className={styles.tabPanel}>
+                {synthesisTab === 'answer' && <div className={styles.fullAnswer}>{synthesis.answer}</div>}
+                {synthesisTab === 'chunks' && (
+                  <div className={styles.chunkList}>
+                    {chunks.length === 0 && <div className={styles.placeholderText}>No chunks were required for this answer.</div>}
+                    {chunks.map((chunk) => (
+                      <div key={chunk.id} className={styles.chunkCard}>
+                        <div className={styles.chunkHeader}>
+                          <div>
+                            <div className={styles.chunkTitle}>{getChunkTitle(chunk)}</div>
+                            <div className={styles.vectorSourceTag}>{formatVectorSourceLabel(chunk.vectorSource)}</div>
+                          </div>
+                          <div className={styles.chunkScore}>{(chunk.score * 100).toFixed(1)}%</div>
+                        </div>
+                        <div className={styles.chunkSourceRow}>
+                          <div className={styles.chunkSource}>{getChunkSource(chunk)}</div>
+                          {chunk.chunkSentiment && <span className={styles.sentimentBadge}>{chunk.chunkSentiment}</span>}
+                        </div>
+                        {chunk.chunkSummary && <p className={styles.chunkSummary}>{chunk.chunkSummary}</p>}
+                        <p className={styles.chunkSnippet}>{chunk.snippet}</p>
+                        {chunk.chunkIntents.length > 0 && (
+                          <div className={styles.intentChips}>
+                            {chunk.chunkIntents.slice(0, 4).map((intent) => (
+                              <span key={`${chunk.id}-intent-${intent}`} className={styles.intentChip}>
+                                {intent}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {chunk.chunkClaims.length > 0 && (
+                          <ul className={styles.claimList}>
+                            {chunk.chunkClaims.slice(0, 3).map((claim) => (
+                              <li key={`${chunk.id}-detail-${claim}`} className={styles.claimItem}>
+                                {claim}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {synthesisTab === 'trace' && (
+                  <ol className={styles.traceList}>
+                    {synthesis.reasoning.map((step, index) => (
+                      <li key={`${step}-${index}`} className={styles.traceItem}>
+                        {step}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
             </div>
           )}
           {stage === 'error' && !synthesisReady && <div className={styles.placeholderText}>Synthesis failed.</div>}
@@ -824,94 +893,6 @@ export default function Home() {
         </div>
         {stage === 'error' && errorMessage && <div className={styles.errorPanel}>{errorMessage}</div>}
       </section>
-      {stage === 'complete' && synthesis && (
-        <section className={styles.answerSection}>
-          <div className={styles.answerHeader}>
-            <h2 className={styles.answerTitle}>Final answer</h2>
-            {classification && (
-              <div className={styles.answerMeta}>
-                <span>{QUESTION_TYPES[classification.type].label}</span>
-                <span>Confidence {Math.round(classification.confidence * 100)}%</span>
-              </div>
-            )}
-          </div>
-          <div className={styles.tabList}>
-            <button
-              type="button"
-              className={`${styles.tabButton} ${activeTab === 'answer' ? styles.tabActive : ''}`}
-              onClick={() => setActiveTab('answer')}
-            >
-              Answer
-            </button>
-            <button
-              type="button"
-              className={`${styles.tabButton} ${activeTab === 'chunks' ? styles.tabActive : ''}`}
-              onClick={() => setActiveTab('chunks')}
-            >
-              Retrieved chunks
-            </button>
-            <button
-              type="button"
-              className={`${styles.tabButton} ${activeTab === 'trace' ? styles.tabActive : ''}`}
-              onClick={() => setActiveTab('trace')}
-            >
-              Source trace
-            </button>
-          </div>
-          <div className={styles.tabPanel}>
-            {activeTab === 'answer' && <div className={styles.fullAnswer}>{synthesis.answer}</div>}
-            {activeTab === 'chunks' && (
-              <div className={styles.chunkList}>
-                {chunks.length === 0 && <div className={styles.placeholderText}>No chunks were required for this answer.</div>}
-                {chunks.map((chunk) => (
-                  <div key={chunk.id} className={styles.chunkCard}>
-                    <div className={styles.chunkHeader}>
-                      <div>
-                        <div className={styles.chunkTitle}>{getChunkTitle(chunk)}</div>
-                        <div className={styles.vectorSourceTag}>{formatVectorSourceLabel(chunk.vectorSource)}</div>
-                      </div>
-                      <div className={styles.chunkScore}>{(chunk.score * 100).toFixed(1)}%</div>
-                    </div>
-                    <div className={styles.chunkSourceRow}>
-                      <div className={styles.chunkSource}>{getChunkSource(chunk)}</div>
-                      {chunk.chunkSentiment && <span className={styles.sentimentBadge}>{chunk.chunkSentiment}</span>}
-                    </div>
-                    {chunk.chunkSummary && <p className={styles.chunkSummary}>{chunk.chunkSummary}</p>}
-                    <p className={styles.chunkSnippet}>{chunk.snippet}</p>
-                    {chunk.chunkIntents.length > 0 && (
-                      <div className={styles.intentChips}>
-                        {chunk.chunkIntents.slice(0, 4).map((intent) => (
-                          <span key={`${chunk.id}-intent-${intent}`} className={styles.intentChip}>
-                            {intent}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {chunk.chunkClaims.length > 0 && (
-                      <ul className={styles.claimList}>
-                        {chunk.chunkClaims.slice(0, 3).map((claim) => (
-                          <li key={`${chunk.id}-detail-${claim}`} className={styles.claimItem}>
-                            {claim}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-            {activeTab === 'trace' && (
-              <ol className={styles.traceList}>
-                {synthesis.reasoning.map((step, index) => (
-                  <li key={`${step}-${index}`} className={styles.traceItem}>
-                    {step}
-                  </li>
-                ))}
-              </ol>
-            )}
-          </div>
-        </section>
-      )}
     </main>
   );
 }
