@@ -165,23 +165,6 @@ function getChunkTitle(chunk: Chunk): string {
   return chunk.id;
 }
 
-function getChunkSource(chunk: Chunk): string {
-  const url = chunk.metadata.youtube_url?.trim();
-  if (url) {
-    return url;
-  }
-  const sourceName = chunk.metadata.source_name?.trim();
-  if (sourceName) {
-    return sourceName;
-  }
-  const sourcePath = chunk.metadata.source_path?.trim();
-  if (sourcePath) {
-    return sourcePath;
-  }
-  return chunk.id;
-}
-
-
 function isQuestionTypeKey(value: string): value is QuestionTypeKey {
   return ['factual', 'analytical', 'meta', 'exploratory', 'comparative', 'creative'].includes(value);
 }
@@ -757,10 +740,11 @@ export default function Home() {
                           </div>
                           <div className={styles.chunkScore}>{(chunk.score * 100).toFixed(1)}%</div>
                         </div>
-                        <div className={styles.chunkSourceRow}>
-                          <div className={styles.chunkSource}>{getChunkSource(chunk)}</div>
-                          {chunk.chunkSentiment && <span className={styles.sentimentBadge}>{chunk.chunkSentiment}</span>}
-                        </div>
+                        {chunk.chunkSentiment && (
+                          <div className={styles.chunkSourceRow}>
+                            <span className={styles.sentimentBadge}>{chunk.chunkSentiment}</span>
+                          </div>
+                        )}
                         {chunk.chunkSummary && <p className={styles.chunkSummary}>{chunk.chunkSummary}</p>}
                         <p className={styles.chunkSnippet}>{chunk.snippet}</p>
                         {chunk.chunkIntents.length > 0 && (

@@ -651,6 +651,8 @@
   font-size: 14px;
   color: #1f2937;
   font-weight: 500;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .collapsibleTwo {
@@ -875,9 +877,27 @@
 }
 
 .chunkList {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: calc(25% - 12px);
   gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-snap-type: x mandatory;
+  scroll-padding-left: 0;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  max-width: 100%;
+}
+
+.chunkList::-webkit-scrollbar {
+  height: 6px;
+}
+
+.chunkList::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
 }
 
 .chunkCard {
@@ -888,6 +908,19 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  scroll-snap-align: start;
+  max-height: 360px;
+  overflow-y: auto;
+  min-width: 280px;
+}
+
+.chunkCard::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chunkCard::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
 }
 
 .chunkHeader {
@@ -920,6 +953,8 @@
   font-size: 14px;
   color: #4b5563;
   line-height: 1.6;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .chunkSource {
@@ -1039,16 +1074,28 @@
     grid-auto-columns: calc(85% - 12px);
   }
 
+  .chunkList {
+    grid-auto-columns: calc(85% - 12px);
+  }
+
 }
 
 @media (min-width: 721px) and (max-width: 1100px) {
   .retrievalScroller {
     grid-auto-columns: calc(50% - 8px);
   }
+
+  .chunkList {
+    grid-auto-columns: calc(50% - 8px);
+  }
 }
 
 @media (min-width: 1101px) and (max-width: 1400px) {
   .retrievalScroller {
+    grid-auto-columns: calc(33.333% - 11px);
+  }
+
+  .chunkList {
     grid-auto-columns: calc(33.333% - 11px);
   }
 }
