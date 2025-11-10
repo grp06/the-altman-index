@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import styles from './page.module.css';
 import {
   Chunk,
@@ -12,6 +13,7 @@ import {
   getVectorSourceExplanation,
   mapChunk,
 } from './lib/retrieval';
+import { trackQuestionSubmitted } from './lib/analytics';
 
 type Stage = 'idle' | 'classifying' | 'retrieving' | 'synthesizing' | 'complete' | 'error';
 type CoreStage = 'classifying' | 'retrieving' | 'synthesizing';
@@ -56,7 +58,7 @@ const QUESTION_TYPES: Record<
     description: 'Direct answers grounded in specific interview excerpts.',
     icon: '📌',
     suggestions: [
-      'Did Sam Altman ever admit OpenAI broke its original open-source promise?',
+      'Has Altman ever addressed criticisms about OpenAI\'s commercialization?',
       'What\'s the most apocalyptic prediction Altman has made about AGI timelines?',
       'Has Altman ever criticized Elon Musk by name in an interview?',
       'What does Altman say about whether AGI will cause mass unemployment?',
@@ -362,6 +364,9 @@ export default function Home() {
   const currentTypeForVisual = classification?.type ?? (selectedType === 'auto' ? 'factual' : selectedType);
 
   const handleQuerySubmit = async (input: string) => {
+    // Track the question submission
+    trackQuestionSubmitted(input, selectedType);
+
     if (!input.trim()) {
       setErrorMessage('Enter a question to begin.');
       return;
@@ -672,7 +677,7 @@ export default function Home() {
         if (classificationReady && classification) {
           return 'Ready';
         }
-        return 'Pending';
+        return '';
       })();
 
       return (
@@ -720,7 +725,7 @@ export default function Home() {
         if (stage === 'classifying') {
           return 'Pending';
         }
-        return 'Pending';
+        return '';
       })();
 
       return (
@@ -747,7 +752,7 @@ export default function Home() {
       if (stage === 'classifying' || stage === 'retrieving') {
         return 'Pending';
       }
-      return 'Pending';
+      return '';
     })();
 
     return (
@@ -793,7 +798,7 @@ export default function Home() {
                 </button>
               </div>
               <div className={styles.tabPanel}>
-                {synthesisTab === 'answer' && <div className={styles.fullAnswer}>{synthesis.answer}</div>}
+                {synthesisTab === 'answer' && <div className={styles.fullAnswer}><ReactMarkdown>{synthesis.answer}</ReactMarkdown></div>}
                 {synthesisTab === 'chunks' && (
                   <div className={styles.chunkList}>
                     {chunks.length === 0 && <div className={styles.placeholderText}>No chunks were required for this answer.</div>}

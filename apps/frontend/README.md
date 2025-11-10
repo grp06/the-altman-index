@@ -1,6 +1,6 @@
-# Podcast Analysis UI
+# The Altman Index
 
-This Next.js app surfaces locally downloaded podcast episodes, their transcripts, and AI-driven speaker insights. All data is sourced from local FastAPI services (`download_youtube_audio`, `diarized_audio`) and metadata written to disk.
+A searchable knowledge base of 100+ Sam Altman interviews with transparent RAG retrieval. This Next.js app allows users to ask questions about Sam Altman's interviews and see exactly how the AI retrieves and reasons about his ideas.
 
 ## Getting Started
 
@@ -10,6 +10,15 @@ npm run dev
 ```
 
 Visit `http://localhost:3000` to open the UI.
+
+## Google Analytics Tracking
+
+The app includes Google Analytics tracking for question submissions. Questions asked are tracked as "question_submitted" events with the following parameters:
+- **question_length**: Character count of the question
+- **question_type**: Type of question (factual, analytical, meta, exploratory, comparative, creative, or auto)
+- **question_preview**: First 100 characters of the question text
+
+View your analytics data at [Google Analytics](https://analytics.google.com/) under Events > question_submitted.
 
 ## Data Flow
 

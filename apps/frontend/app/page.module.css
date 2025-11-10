@@ -1181,6 +1181,22 @@
   line-height: 1.7;
 }
 
+.fullAnswer ol,
+.fullAnswer ul {
+  margin: 16px 0;
+  padding-left: 24px;
+}
+
+.fullAnswer li {
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+.fullAnswer strong {
+  font-weight: 600;
+  color: #0f172a;
+}
+
 .chunkList {
   display: grid;
   grid-auto-flow: column;

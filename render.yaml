@@ -6,7 +6,8 @@ services:
     region: oregon
     branch: main
     buildCommand: pip install uv && uv sync --frozen --no-dev --project apps/backend
-    startCommand: uv run --project apps/backend uvicorn rag_backend.main:app --host 0.0.0.0 --port $PORT
+    startCommand: python3 -m http.server $PORT
+    # After upload: uv run --project apps/backend uvicorn rag_backend.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHONPATH
         value: /opt/render/project/src/apps/backend/src:/opt/render/project/src/libs/python/core/src
