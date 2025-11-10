@@ -11,7 +11,7 @@ services:
       - key: PYTHONPATH
         value: /opt/render/project/src/apps/backend/src:/opt/render/project/src/libs/python/core/src
       - key: RAG_BACKEND_CONFIG_PATH
-        value: /opt/render/project/src/config/backend.yaml
+        value: config/backend.yaml
       - key: OPENAI_API_KEY
         sync: false
 
