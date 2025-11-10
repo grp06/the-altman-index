@@ -2,37 +2,73 @@
 
 ## Issues Fixed
 
-1. **Python version**: Pinned to 3.11 (via `.python-version`) to avoid pydantic-core build issues with Python 3.13
-2. **Build configuration**: Created `render.yaml` with proper monorepo setup
+1. ✅ **Python version**: Pinned to 3.11 (via `.python-version`) to avoid pydantic-core build issues with Python 3.13
+2. ✅ **Build configuration**: Created `render.yaml` with proper monorepo setup
+3. ✅ **Config path**: Updated `RAG_BACKEND_CONFIG_PATH` to correct absolute path
+4. ✅ **Persistent disk**: Added disk configuration to `render.yaml`
 
-## Manual Steps Required in Render Dashboard
+## Steps to Complete Deployment
 
-The deployment is failing because there's a pre-existing environment variable `RAG_BACKEND_CONFIG_PATH` set in the Render dashboard that's overriding the render.yaml configuration.
+### 1. Create Persistent Disk (Manual - Render Dashboard)
 
-### To Fix:
+The `render.yaml` now includes a persistent disk configuration, but you need to **manually create the disk** first in the Render dashboard:
 
-1. Go to the Render dashboard for `the-altman-index` service
-2. Navigate to Environment tab
-3. **Remove or update** the `RAG_BACKEND_CONFIG_PATH` environment variable to: `/opt/render/project/src/config/backend.yaml`
-4. Make sure `OPENAI_API_KEY` is set
-5. Trigger a new deploy
+1. Go to your service: https://dashboard.render.com/web/srv-d4954ljuibrs739lpud0
+2. Click on **"Disks"** in the left sidebar
+3. Click **"Add Disk"**
+4. Configure:
+   - **Name**: `altman-index-data`
+   - **Mount Path**: `/opt/render/project/src/var`
+   - **Size**: 1 GB (you're using ~168MB)
+5. Click **"Create Disk"**
+
+### 2. Upload Your Data to the Disk
+
+Once the disk is created and mounted, upload your local artifacts:
+
+```bash
+# From your project root
+./scripts/upload-to-render.sh
+```
+
+This will rsync your `var/` directory (artifacts + data) to the Render service via SSH.
+
+**What gets uploaded:**
+- `var/artifacts/` - ChromaDB index, Parquet files, enrichment cache (~166MB)
+- `var/data/` - Raw transcripts and metadata (~2.2MB)
+
+### 3. Deploy with Disk Configuration
+
+After the data is uploaded, commit and push the updated `render.yaml`:
+
+```bash
+git add render.yaml scripts/upload-to-render.sh RENDER_DEPLOY_NOTES.md
+git commit -m "Add persistent disk configuration"
+git push origin main
+```
+
+Then trigger a deploy:
+```bash
+render deploys create srv-d4954ljuibrs739lpud0 --output json --confirm
+```
 
 ## Current Status
 
 - ✅ Build succeeds
 - ✅ Python 3.11 with pre-built wheels
-- ❌ Service fails to start due to config path issue
+- ✅ Config file found at correct path
+- ⏳ **Next**: Need to create disk and upload data
 
-The service is looking for `/workspace/config/backend.yaml` but the config file is actually at `/opt/render/project/src/config/backend.yaml`.
+## Architecture on Render
 
-## Important: Missing Data Files
-
-Even after fixing the config path, the service will fail because it needs the ingestion artifacts (`var/artifacts/` directory with ChromaDB index and Parquet files). These need to be:
-
-1. Generated locally with `make ingestion-rebuild`
-2. Uploaded to a Render Persistent Disk mounted at `/opt/render/project/src/var`
-
-OR
-
-Run the ingestion pipeline once on Render using a separate service or background job.
+```
+/opt/render/project/src/
+├── apps/
+│   └── backend/          # Your FastAPI app
+├── config/
+│   └── backend.yaml      # Config file ✅
+└── var/                  # Mounted persistent disk
+    ├── artifacts/        # ChromaDB + Parquet (needs upload)
+    └── data/            # Transcripts (needs upload)
+```
 

@@ -14,4 +14,8 @@ services:
         value: /opt/render/project/src/config/backend.yaml
       - key: OPENAI_API_KEY
         sync: false
+    disk:
+      name: altman-index-data
+      mountPath: /opt/render/project/src/var
+      sizeGB: 1
 
