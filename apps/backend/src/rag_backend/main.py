@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import json
-from typing import Optional
-
 from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -88,6 +88,14 @@ def classify(request: ClassifyRequest) -> ClassifyResponse:
   except Exception as exc:  # noqa: BLE001
     logger.error("Classifier failure: %s", exc)
     raise HTTPException(status_code=502, detail="Classifier request failed") from exc
+  normalized = request.query.strip().lower().encode("utf-8")
+  digest = hashlib.sha256(normalized).hexdigest()[:12]
+  logger.info(
+    "classification query_hash=%s type=%s confidence=%.3f",
+    digest,
+    result["type"],
+    result["confidence"],
+  )
   return ClassifyResponse(**result)
 
 

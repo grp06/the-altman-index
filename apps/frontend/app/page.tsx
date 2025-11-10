@@ -46,9 +46,12 @@ const QUESTION_TYPES: Record<
     label: 'Factual',
     description: 'Direct answers grounded in specific interview excerpts.',
     suggestions: [
-      'What did Sam Altman say about regulating AI?',
-      'How does Sam Altman define OpenAI’s mission?',
-      'Which interview covers Altman’s thoughts on alignment?',
+      'Did Sam Altman ever admit OpenAI broke its original open-source promise?',
+      'What\'s the most apocalyptic prediction Altman has made about AGI timelines?',
+      'Has Altman ever criticized Elon Musk by name in an interview?',
+      'What does Altman say about whether AGI will cause mass unemployment?',
+      'Did Altman ever acknowledge specific mistakes or failures at OpenAI?',
+      'What\'s the highest probability Altman has given for AI causing human extinction?',
     ],
     visualHeadline: 'Top matching snippets',
   },
@@ -56,9 +59,12 @@ const QUESTION_TYPES: Record<
     label: 'Analytical',
     description: 'Multi-source synthesis to evaluate themes and patterns.',
     suggestions: [
-      'How has Sam Altman’s stance on AGI safety evolved?',
-      'What patterns appear in how Altman hires leaders?',
-      'How does Altman compare startups to moonshots?',
+      'Does Altman sound more like a techno-optimist or a doomer when discussing AGI risks?',
+      'How often does Altman dodge questions about OpenAI\'s Microsoft partnership?',
+      'What contradictions exist between Altman\'s libertarian past and current regulatory advocacy?',
+      'How has Altman\'s rhetoric about "democratizing AI" changed as OpenAI became less accessible?',
+      'Does Altman show more concern for AI safety or beating competitors to AGI?',
+      'What patterns emerge in how Altman responds to criticism from former OpenAI employees?',
     ],
     visualHeadline: 'Clustered perspectives',
   },
@@ -66,9 +72,12 @@ const QUESTION_TYPES: Record<
     label: 'Meta',
     description: 'Corpus-wide reflections without direct retrieval.',
     suggestions: [
-      'How transparent are these interviews overall?',
-      'What topics seem underrepresented across the corpus?',
-      'Where might Altman’s views still be ambiguous?',
+      'Which controversial topics does Altman consistently avoid across all interviews?',
+      'Do interviewers ever successfully challenge Altman\'s narratives, or do they softball him?',
+      'Is there a pattern of Altman revising his public stance after negative press?',
+      'How often does Altman give vague non-answers compared to concrete commitments?',
+      'Are there questions that make Altman visibly uncomfortable or defensive?',
+      'Does the corpus reveal a consistent worldview or someone who adapts to their audience?',
     ],
     visualHeadline: 'Global corpus overview',
   },
@@ -76,9 +85,12 @@ const QUESTION_TYPES: Record<
     label: 'Exploratory',
     description: 'Surface adjacent themes and emerging directions.',
     suggestions: [
-      'What unexpected topics does Sam Altman mention?',
-      'Which interviews explore Altman’s personal routines?',
-      'Where does Altman discuss the future of education?',
+      'Has Altman ever discussed psychedelics, effective altruism, or life extension?',
+      'What does Altman say about his firing and dramatic reinstatement at OpenAI?',
+      'Where does Altman reveal his most unguarded opinions about competitors like Anthropic?',
+      'Does Altman ever talk about his personal wealth, equity stakes, or financial motivations?',
+      'What are Altman\'s most controversial takes on politics, government, or democracy?',
+      'Has Altman discussed scenarios where AGI development should be halted or slowed?',
     ],
     visualHeadline: 'Topic bubbles',
   },
@@ -86,9 +98,12 @@ const QUESTION_TYPES: Record<
     label: 'Comparative',
     description: 'Contrast interviews across time or context.',
     suggestions: [
-      'How did Altman’s opinion on crypto change between 2019 and 2023?',
-      'Which interviews juxtapose Altman’s views on AI risk and growth?',
-      'Where does Altman contrast OpenAI with other labs?',
+      'When did Altman stop saying "open" AI should actually be open?',
+      'How has Altman\'s tone toward AI regulation shifted as OpenAI gained more market power?',
+      'Compare Altman in 2017 versus 2023: idealist founder or corporate executive?',
+      'How did Altman\'s AGI timeline predictions change before and after ChatGPT\'s success?',
+      'Compare how Altman talks about safety when speaking to AI researchers versus journalists.',
+      'Track the evolution: when did "AGI for humanity" become "AGI for profit"?',
     ],
     visualHeadline: 'Timeline alignment',
   },
@@ -96,9 +111,12 @@ const QUESTION_TYPES: Record<
     label: 'Creative',
     description: 'Inventive prompts that remix the corpus into new artifacts.',
     suggestions: [
-      'Draft a commencement speech using Altman’s advice.',
-      'Write a startup manifesto inspired by Altman’s interviews.',
-      'Imagine Altman briefing policymakers on AI regulation.',
+      'Write a scathing investigative exposé using only Altman\'s own contradictory quotes.',
+      'Create a debate between 2017 Sam and 2024 Sam about OpenAI\'s direction.',
+      'Generate a satirical press release announcing "ClosedAI" using Altman\'s actual rhetoric.',
+      'Draft an open letter from Altman to his critics addressing their most damning accusations.',
+      'Imagine Altman\'s private pitch deck to venture capitalists versus his public mission statements.',
+      'Create a "greatest hits" compilation of Altman\'s most cringe-worthy predictions and pivots.',
     ],
     visualHeadline: 'Creative synthesis workspace',
   },
@@ -619,19 +637,16 @@ export default function Home() {
       <section className={styles.heroSection}>
         <div className={styles.heroContent}>
           <p className={styles.kicker}>Sam Altman Interview Explorer</p>
-          <h1 className={styles.title}>See how AI retrieves and reasons about 100 interviews.</h1>
-          <p className={styles.subtitle}>
-            Ask a question, follow the pipeline from intent classification to chunk retrieval, and study the final synthesis with full context.
-          </p>
+          <h1 className={styles.title}>Transparent answers from 100 Sam Altman interviews.</h1>
+          <p className={styles.subtitle}>Classify intent, pull the right passages, and inspect the sourced synthesis in one view.</p>
         </div>
-        <div className={styles.heroBadge}>Transparent RAG Pipeline</div>
       </section>
       <section className={styles.searchSection}>
         <div className={styles.searchCard}>
           <form className={styles.searchForm} onSubmit={handleSubmit}>
             <input
               className={styles.searchInput}
-              placeholder="Ask anything across the Sam Altman interview corpus..."
+              placeholder="Type any question or tap a starter from the tabs below..."
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               disabled={isSubmitting}
@@ -655,8 +670,12 @@ export default function Home() {
             ))}
           </div>
           <div className={styles.pillDescription}>{QUESTION_TYPES[selectedType].description}</div>
+          <div className={styles.pillHint}>Presets only change the starter prompts below. Type anything; classification adapts after you submit.</div>
           <div className={styles.suggestions}>
-            <div className={styles.suggestionsHeader}>Example questions</div>
+            <div className={styles.suggestionsHeader}>Starter questions</div>
+            <div className={styles.suggestionsSubhead}>
+              {QUESTION_TYPES[selectedType].label} preset selected. Tap any suggestion to auto-fill, or ignore them and keep typing your own question.
+            </div>
             <div className={styles.suggestionList}>
               {suggestions.map((suggestion) => (
                 <button
@@ -675,8 +694,8 @@ export default function Home() {
       </section>
       <section className={styles.processSection}>
         <div className={styles.processHeader}>
-          <div className={styles.processTitle}>Follow the reasoning pipeline</div>
-          <div className={styles.processCaption}>Each stage updates once the backend reports progress.</div>
+          <div className={styles.processTitle}>Trace the retrieval workflow</div>
+          <div className={styles.processCaption}>We surface every backend step so you can verify how the answer was assembled.</div>
         </div>
         <div className={styles.stepper}>
           {PROCESS_STEPS.map((step, index) => {
@@ -745,7 +764,7 @@ export default function Home() {
               {stage === 'synthesizing' && (
                 <div className={styles.loadingRow}>
                   <div className={styles.spinner} />
-                  <span>Synthesizing final answer with reasoning trace.</span>
+                  <span>Synthesizing final answer with source trace.</span>
                 </div>
               )}
               {synthesisReady && synthesis && (
@@ -795,7 +814,7 @@ export default function Home() {
               className={`${styles.tabButton} ${activeTab === 'trace' ? styles.tabActive : ''}`}
               onClick={() => setActiveTab('trace')}
             >
-              Reasoning trace
+              Source trace
             </button>
           </div>
           <div className={styles.tabPanel}>
@@ -852,10 +871,6 @@ export default function Home() {
           </div>
         </section>
       )}
-      <footer className={styles.footer}>
-        <span>Built for transparent AI exploration.</span>
-        <span>Sam Altman Interview Explorer</span>
-      </footer>
     </main>
   );
 }
